@@ -4,7 +4,7 @@ const MEETINGS_KEY = 'ai_meetings_history';
 const SETTINGS_KEY = 'ai_meetings_settings';
 
 const DEFAULT_SETTINGS: ExtensionSettings = {
-  geminiApiKey: '',
+  geminiApiKey: (import.meta.env.VITE_GEMINI_API_KEY as string) || '',
   primaryModel: 'gemini-2.0-flash',
   fallbackModels: ['gemini-1.5-flash', 'gemini-1.5-pro'],
   autoDetectMeetings: true,
@@ -39,7 +39,12 @@ export async function upsertMeeting(meeting: Meeting): Promise<void> {
 export async function getStoredSettings(): Promise<ExtensionSettings> {
   try {
     const result = await chrome.storage.local.get([SETTINGS_KEY]);
-    return { ...DEFAULT_SETTINGS, ...((result[SETTINGS_KEY] as Partial<ExtensionSettings>) || {}) };
+    const stored = (result[SETTINGS_KEY] as Partial<ExtensionSettings>) || {};
+    return {
+      ...DEFAULT_SETTINGS,
+      ...stored,
+      geminiApiKey: stored.geminiApiKey || DEFAULT_SETTINGS.geminiApiKey
+    };
   } catch (error) {
     console.error('Failed to load settings:', error);
     return DEFAULT_SETTINGS;

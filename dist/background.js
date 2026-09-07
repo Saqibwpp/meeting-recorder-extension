@@ -1,4 +1,4 @@
-import{g as w,a as I,u as g}from"./assets/storage-BTJslP3D.js";const R="gemini-2.0-flash",C=["gemini-1.5-flash","gemini-1.5-pro"],M=`You are an expert AI meeting notetaker and transcription engine.
+import{g as w,a as I,u as g}from"./assets/storage-CfFuJJAr.js";const R="gemini-2.0-flash",C=["gemini-1.5-flash","gemini-1.5-pro"],M=`You are an expert AI meeting notetaker and transcription engine.
 The attached audio is a 2-channel stereo meeting recording:
 - Channel 1 (Left Channel): Local User (You / Microphone)
 - Channel 2 (Right Channel): Remote Participants (System / Browser Tab from Teams, Google Meet, Zoom, Slack)
