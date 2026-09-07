@@ -18,7 +18,7 @@
     "https://teams.live.com/*",
     "https://*.zoom.us/*",
     "https://app.slack.com/*",
-    "http://localhost:4829/*",
+    "http://localhost:*/*",
     "https://generativelanguage.googleapis.com/*"
   ],
   "background": {
@@ -41,7 +41,8 @@
         "https://teams.microsoft.com/*",
         "https://teams.live.com/*",
         "https://*.zoom.us/*",
-        "https://app.slack.com/*"
+        "https://app.slack.com/*",
+        "http://localhost:*/*"
       ],
       "js": [
         "content.js"

@@ -131,7 +131,7 @@ export const RecordingCard: React.FC = () => {
       {/* Model indicator footer */}
       <div className="flex items-center justify-center gap-1.5 text-[11px] text-slate-500">
         <Sparkles className="w-3 h-3 text-emerald-400" />
-        <span>Model: {settings?.primaryModel || 'gemini-2.0-flash'} (auto-fallback enabled)</span>
+        <span>Model: {settings?.primaryModel || 'gemini-3.1-flash-lite'} (auto-fallback enabled)</span>
       </div>
     </div>
   );
