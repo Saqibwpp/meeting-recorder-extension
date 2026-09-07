@@ -1,13 +1,14 @@
 import React, { useState, useEffect } from 'react';
 import { Key, Sparkles, Check, Server, Eye, EyeOff, ShieldCheck, HelpCircle } from 'lucide-react';
 import { useSettingsQuery, useUpdateSettingsMutation } from '../../hooks/useSettings';
+import { DEFAULT_PRIMARY_MODEL } from '../../services/gemini';
 
 export const SettingsView: React.FC = () => {
   const { data: settings } = useSettingsQuery();
   const updateMutation = useUpdateSettingsMutation();
 
   const [apiKey, setApiKey] = useState('');
-  const [primaryModel, setPrimaryModel] = useState('gemini-2.0-flash');
+  const [primaryModel, setPrimaryModel] = useState(DEFAULT_PRIMARY_MODEL);
   const [autoDetect, setAutoDetect] = useState(true);
   const [serverUrl, setServerUrl] = useState('http://localhost:4829');
   const [showKey, setShowKey] = useState(false);
@@ -16,7 +17,7 @@ export const SettingsView: React.FC = () => {
   useEffect(() => {
     if (settings) {
       setApiKey(settings.geminiApiKey || '');
-      setPrimaryModel(settings.primaryModel || 'gemini-2.0-flash');
+      setPrimaryModel(settings.primaryModel || DEFAULT_PRIMARY_MODEL);
       setAutoDetect(settings.autoDetectMeetings ?? true);
       setServerUrl(settings.localServerUrl || 'http://localhost:4829');
     }
@@ -62,7 +63,7 @@ export const SettingsView: React.FC = () => {
             type={showKey ? 'text' : 'password'}
             value={apiKey}
             onChange={(e) => setApiKey(e.target.value)}
-            placeholder="AIzaSy..."
+            placeholder="AQ.Ab8... or AIzaSy..."
             className="w-full bg-slate-900 border border-slate-800 rounded-xl px-3 py-2 pr-9 text-xs text-white placeholder-slate-600 focus:outline-none focus:border-emerald-500 transition-colors font-mono"
           />
           <button
@@ -73,7 +74,7 @@ export const SettingsView: React.FC = () => {
             {showKey ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
           </button>
         </div>
-        <p className="text-[10px] text-slate-500">Stored locally in your browser's encrypted extension storage.</p>
+        <p className="text-[10px] text-slate-500">Loaded from .env / configured locally in browser storage.</p>
       </div>
 
       {/* Model Selection */}
@@ -87,16 +88,17 @@ export const SettingsView: React.FC = () => {
           onChange={(e) => setPrimaryModel(e.target.value)}
           className="w-full bg-slate-900 border border-slate-800 rounded-xl px-3 py-2 text-xs text-white focus:outline-none focus:border-emerald-500 transition-colors"
         >
-          <option value="gemini-2.0-flash">Gemini 2.0 Flash (Fastest & Multimodal recommended)</option>
-          <option value="gemini-1.5-flash">Gemini 1.5 Flash (Standard)</option>
-          <option value="gemini-1.5-pro">Gemini 1.5 Pro (Deep Reasoning)</option>
+          <option value="gemini-3.1-flash-lite">Gemini 3.1 Flash Lite (Recommended)</option>
+          <option value="gemini-3.7-flash">Gemini 3.7 Flash</option>
+          <option value="gemini-3.8-flash">Gemini 3.8 Flash</option>
+          <option value="gemini-flash-latest">Gemini Flash Latest</option>
         </select>
         
         {/* Fallback chain notice */}
         <div className="p-2.5 bg-slate-900/60 border border-slate-800/80 rounded-xl flex items-start gap-2 text-[11px] text-slate-400">
           <ShieldCheck className="w-4 h-4 text-teal-400 shrink-0 mt-0.5" />
           <span>
-            <strong>Automatic Fallback:</strong> If your primary model encounters rate limits (HTTP 429), it automatically falls back to <em>gemini-1.5-flash</em> and <em>gemini-1.5-pro</em>.
+            <strong>Automatic Fallback:</strong> If the primary model hits rate limits (HTTP 429), it automatically falls back across <em>3.1-preview</em>, <em>3.7-flash</em>, and <em>3.8-flash</em>.
           </span>
         </div>
       </div>

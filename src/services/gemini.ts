@@ -11,8 +11,13 @@ export interface GeminiTranscriptionOptions {
   fallbackModels?: string[];
 }
 
-const DEFAULT_PRIMARY = 'gemini-2.0-flash';
-const DEFAULT_FALLBACKS = ['gemini-1.5-flash', 'gemini-1.5-pro'];
+export const DEFAULT_PRIMARY_MODEL = 'gemini-3.1-flash-lite';
+export const DEFAULT_FALLBACK_MODELS = [
+  'gemini-3.1-flash-lite-preview',
+  'gemini-3.7-flash',
+  'gemini-3.8-flash',
+  'gemini-flash-latest'
+];
 
 const SYSTEM_PROMPT = `You are an expert AI meeting notetaker and transcription engine.
 The attached audio is a 2-channel stereo meeting recording:
@@ -34,8 +39,8 @@ Respond ONLY with valid JSON matching this structure. Do not wrap in markdown co
 
 export async function transcribeWithGemini(options: GeminiTranscriptionOptions): Promise<TranscriptData> {
   const modelsToTry = [
-    options.primaryModel || DEFAULT_PRIMARY,
-    ...(options.fallbackModels || DEFAULT_FALLBACKS)
+    options.primaryModel || DEFAULT_PRIMARY_MODEL,
+    ...(options.fallbackModels || DEFAULT_FALLBACK_MODELS)
   ];
 
   let lastError: Error | null = null;

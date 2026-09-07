@@ -1,12 +1,13 @@
 import { Meeting, ExtensionSettings } from '../types';
+import { DEFAULT_PRIMARY_MODEL, DEFAULT_FALLBACK_MODELS } from './gemini';
 
 const MEETINGS_KEY = 'ai_meetings_history';
 const SETTINGS_KEY = 'ai_meetings_settings';
 
 const DEFAULT_SETTINGS: ExtensionSettings = {
   geminiApiKey: (import.meta.env.VITE_GEMINI_API_KEY as string) || '',
-  primaryModel: 'gemini-2.0-flash',
-  fallbackModels: ['gemini-1.5-flash', 'gemini-1.5-pro'],
+  primaryModel: DEFAULT_PRIMARY_MODEL,
+  fallbackModels: DEFAULT_FALLBACK_MODELS,
   autoDetectMeetings: true,
   localServerUrl: 'http://localhost:4829'
 };
