@@ -19,7 +19,6 @@ const DEFAULT_SETTINGS: ExtensionSettings = {
   primaryModel: DEFAULT_PRIMARY_MODEL,
   fallbackModels: DEFAULT_FALLBACK_MODELS,
   autoDetectMeetings: true,
-  localServerUrl: 'http://localhost:4829'
 };
 
 export async function getStoredMeetings(): Promise<Meeting[]> {

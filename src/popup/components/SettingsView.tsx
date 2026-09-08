@@ -10,7 +10,6 @@ export const SettingsView: React.FC = () => {
   const [apiKey, setApiKey] = useState('');
   const [primaryModel, setPrimaryModel] = useState(DEFAULT_PRIMARY_MODEL);
   const [autoDetect, setAutoDetect] = useState(true);
-  const [serverUrl, setServerUrl] = useState('http://localhost:4829');
   const [showKey, setShowKey] = useState(false);
   const [savedSuccess, setSavedSuccess] = useState(false);
 
@@ -19,7 +18,6 @@ export const SettingsView: React.FC = () => {
       setApiKey(settings.geminiApiKey || '');
       setPrimaryModel(settings.primaryModel || DEFAULT_PRIMARY_MODEL);
       setAutoDetect(settings.autoDetectMeetings ?? true);
-      setServerUrl(settings.localServerUrl || 'http://localhost:4829');
     }
   }, [settings]);
 
@@ -28,8 +26,7 @@ export const SettingsView: React.FC = () => {
       {
         geminiApiKey: apiKey.trim(),
         primaryModel,
-        autoDetectMeetings: autoDetect,
-        localServerUrl: serverUrl.trim()
+        autoDetectMeetings: autoDetect
       },
       {
         onSuccess: () => {
@@ -110,21 +107,6 @@ export const SettingsView: React.FC = () => {
           />
         </label>
         <p className="text-[10px] text-[#888]">Prompt to record when active in Meet/Teams.</p>
-      </div>
-
-      {/* Local Repo Sync Server */}
-      <div className="flex flex-col gap-1.5 mt-2">
-        <label className="font-semibold text-[#1a1a1a] flex items-center gap-1.5">
-          Local Repo Sync Server
-        </label>
-        <input
-          type="text"
-          value={serverUrl}
-          onChange={(e) => setServerUrl(e.target.value)}
-          placeholder="http://localhost:4829"
-          className="w-full bg-white border border-[#e5e3d9] rounded px-3 py-2 text-[13px] text-[#1a1a1a] placeholder-[#aaa] focus:outline-none focus:border-[#2d2d2d] transition-colors font-mono"
-        />
-        <p className="text-[10px] text-[#888]">Writes audio and JSON directly to local repo for debugging.</p>
       </div>
 
       {/* Save Button */}

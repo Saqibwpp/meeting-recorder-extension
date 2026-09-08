@@ -39,7 +39,6 @@ export interface ExtensionSettings {
   primaryModel: string;
   fallbackModels: string[];
   autoDetectMeetings: boolean;
-  localServerUrl: string;
 }
 
 export type ExtensionMessage =
