@@ -13,7 +13,7 @@ async function verifyAuth(request: Request) {
     const decodedToken = await auth.verifyIdToken(idToken);
     return decodedToken.uid;
   } catch (error) {
-    throw new Error('Unauthorized');
+    throw new Error('Unauthorized', { cause: error });
   }
 }
 
