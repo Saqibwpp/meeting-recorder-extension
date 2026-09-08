@@ -51,7 +51,7 @@ export function useStartRecordingMutation() {
           } else if (response && response.success) {
             resolve(response);
           } else {
-            reject(new Error(response?.error || 'Failed to start recording'));
+            reject(new Error(response?.error || `Fallback error. Response: ${JSON.stringify(response)}`));
           }
         });
       });
@@ -76,7 +76,7 @@ export function useStopRecordingMutation() {
           } else if (response && response.success) {
             resolve(response);
           } else {
-            reject(new Error(response?.error || 'Failed to stop recording'));
+            reject(new Error(response?.error || `Fallback error. Response: ${JSON.stringify(response)}`));
           }
         });
       });

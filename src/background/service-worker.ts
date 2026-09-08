@@ -102,86 +102,95 @@ async function ensureOffscreenDocument(): Promise<void> {
 
   await chrome.offscreen.createDocument({
     url: 'src/offscreen/offscreen.html',
-    reasons: [chrome.offscreen.Reason.USER_MEDIA, chrome.offscreen.Reason.AUDIO_PLAYBACK],
+    reasons: [chrome.offscreen.Reason.USER_MEDIA, chrome.offscreen.Reason.DISPLAY_MEDIA, chrome.offscreen.Reason.AUDIO_PLAYBACK],
     justification: 'Recording tab audio and microphone for meeting transcription'
   });
 }
 
 // ── Start Recording ──
 async function handleStartRecording(targetTabId?: number): Promise<void> {
-  // Prevent double-start
-  if (activeRecordingTabId !== null) {
-    console.warn('⚠️ Already recording, ignoring duplicate start request');
-    return;
-  }
-
-  const [activeTab] = await chrome.tabs.query({ active: true, currentWindow: true });
-  const tabId = targetTabId || activeTab?.id;
-  if (!tabId) throw new Error('No active tab found to record');
-
-  await ensureOffscreenDocument();
-
-  const streamId = await new Promise<string>((resolve, reject) => {
-    chrome.tabCapture.getMediaStreamId({ targetTabId: tabId }, (id) => {
-      if (chrome.runtime.lastError) {
-        reject(new Error(chrome.runtime.lastError.message));
-      } else {
-        resolve(id);
-      }
-    });
-  });
-
-  activeRecordingTabId = tabId;
-  const platform = detectPlatform(activeTab?.url);
-  const meetingId = `meeting_${Date.now()}`;
-  const now = Date.now();
-
-  currentMeeting = {
-    id: meetingId,
-    title: activeTab?.title || 'Meeting Recording',
-    url: activeTab?.url || '',
-    platform,
-    startTime: now,
-    durationSeconds: 0,
-    status: 'recording'
-  };
-
-  await setActiveSession({
-    isRecording: true,
-    meetingId,
-    startTime: now,
-    targetTabId: tabId,
-    title: currentMeeting.title,
-    platform
-  });
-  await upsertMeeting(currentMeeting);
-
-  chrome.action.setBadgeText({ text: 'REC' });
-  chrome.action.setBadgeBackgroundColor({ color: '#EF4444' });
-
-  if (recordingTimer) clearInterval(recordingTimer);
-  recordingTimer = setInterval(() => {
-    if (currentMeeting) {
-      currentMeeting.durationSeconds = Math.floor((Date.now() - now) / 1000);
-    }
-  }, 1000);
-
   try {
-    chrome.runtime.sendMessage({
-      target: 'offscreen',
-      type: 'START_OFFSCREEN_RECORDING',
-      streamId,
-      meetingId
-    }, (response) => {
-      if (chrome.runtime.lastError) {
-        console.error("Offscreen communication failed:", chrome.runtime.lastError.message);
-        handleStopRecording().catch(console.error);
-      }
+    // Prevent double-start
+    if (activeRecordingTabId !== null) {
+      console.warn('⚠️ Already recording, ignoring duplicate start request');
+      return;
+    }
+
+    const [activeTab] = await chrome.tabs.query({ active: true, currentWindow: true });
+    const tabId = targetTabId || activeTab?.id;
+    if (!tabId) throw new Error('No active tab found to record');
+
+    try {
+      await ensureOffscreenDocument();
+    } catch (e: any) {
+      throw new Error(`ensureOffscreenDocument failed: ${e.message}`);
+    }
+
+    const streamId = await new Promise<string>((resolve, reject) => {
+      chrome.tabCapture.getMediaStreamId({ targetTabId: tabId }, (id) => {
+        if (chrome.runtime.lastError) {
+          reject(new Error(`getMediaStreamId failed: ${chrome.runtime.lastError.message}`));
+        } else {
+          resolve(id);
+        }
+      });
     });
-  } catch (err) {
-    console.error("Failed to send message to offscreen:", err);
-    await handleStopRecording();
-    throw err;
+
+    activeRecordingTabId = tabId;
+    const platform = detectPlatform(activeTab?.url);
+    const meetingId = `meeting_${Date.now()}`;
+    const now = Date.now();
+
+    currentMeeting = {
+      id: meetingId,
+      title: activeTab?.title || 'Meeting Recording',
+      url: activeTab?.url || '',
+      platform,
+      startTime: now,
+      durationSeconds: 0,
+      status: 'recording'
+    };
+
+    await setActiveSession({
+      isRecording: true,
+      meetingId,
+      startTime: now,
+      targetTabId: tabId,
+      title: currentMeeting.title,
+      platform
+    });
+    await upsertMeeting(currentMeeting);
+
+    chrome.action.setBadgeText({ text: 'REC' });
+    chrome.action.setBadgeBackgroundColor({ color: '#EF4444' });
+
+    if (recordingTimer) clearInterval(recordingTimer);
+    recordingTimer = setInterval(() => {
+      if (currentMeeting) {
+        currentMeeting.durationSeconds = Math.floor((Date.now() - now) / 1000);
+      }
+    }, 1000);
+
+    try {
+      chrome.runtime.sendMessage({
+        target: 'offscreen',
+        type: 'START_OFFSCREEN_RECORDING',
+        streamId,
+        meetingId
+      }, (response) => {
+        if (chrome.runtime.lastError) {
+          console.error("Offscreen communication failed:", chrome.runtime.lastError.message);
+          handleStopRecording().catch(console.error);
+        }
+      });
+    } catch (err: any) {
+      console.error("Failed to send message to offscreen:", err);
+      await handleStopRecording();
+      throw new Error(`sendMessage failed: ${err.message}`);
+    }
+  } catch (error: any) {
+    console.error("handleStartRecording FATAL ERROR:", error);
+    throw error;
   }
 }
 

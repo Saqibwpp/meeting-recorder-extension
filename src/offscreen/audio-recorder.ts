@@ -6,18 +6,23 @@ let startTime: number = 0;
 let keepAlivePort: chrome.runtime.Port | null = null;
 let keepAliveTimer: NodeJS.Timeout | null = null;
 
-chrome.runtime.onMessage.addListener(async (message) => {
+chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
   if (message.target !== 'offscreen') return;
 
   if (message.type === 'START_OFFSCREEN_RECORDING') {
     const { streamId, meetingId } = message;
     currentMeetingId = meetingId;
     startTime = Date.now();
-    await startDualStreamRecording(streamId);
-  }
-
-  if (message.type === 'STOP_OFFSCREEN_RECORDING') {
+    startDualStreamRecording(streamId)
+      .then(() => sendResponse({ success: true }))
+      .catch(err => {
+        console.error('❌ [Offscreen] Failed to start offscreen recording:', err);
+        sendResponse({ success: false, error: err.message });
+      });
+    return true; // Keep channel open for async response
+  } else if (message.type === 'STOP_OFFSCREEN_RECORDING') {
     stopRecording();
+    sendResponse({ success: true });
   }
 });
 
@@ -118,7 +123,8 @@ async function startDualStreamRecording(tabStreamId: string): Promise<void> {
     // Connect Tab Audio
     if (tabStream && tabStream.getAudioTracks().length > 0) {
       const tabSource = audioContext.createMediaStreamSource(tabStream);
-      tabSource.connect(mixer);
+      tabSource.connect(mixer); // Route to recorder
+      tabSource.connect(audioContext.destination); // Route to local speakers so user can hear it
       hasAudioTrack = true;
     }
 
