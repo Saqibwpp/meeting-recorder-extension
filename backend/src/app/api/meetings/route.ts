@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server';
-import { db, auth, storageBucket } from '@/lib/firebase-admin';
+import { getDb, getAdminAuth, getStorageBucket } from '@/lib/firebase-admin';
 
 // Dynamically resolve CORS origin — chrome-extension://* can't use wildcards
 function getCorsHeaders(request: Request): Record<string, string> {
@@ -33,7 +33,7 @@ async function verifyAuth(request: Request) {
 
   const idToken = authHeader.split('Bearer ')[1];
   try {
-    const decodedToken = await auth.verifyIdToken(idToken);
+    const decodedToken = await getAdminAuth().verifyIdToken(idToken);
     return decodedToken.uid;
   } catch (error) {
     throw new Error('Unauthorized', { cause: error });
@@ -46,7 +46,7 @@ export async function GET(request: Request) {
     const uid = await verifyAuth(request);
 
     // Fetch meetings for this user
-    const meetingsSnapshot = await db
+    const meetingsSnapshot = await getDb()
       .collection('meetings')
       .where('userId', '==', uid)
       .orderBy('startTime', 'desc')
@@ -79,7 +79,7 @@ export async function POST(request: Request) {
       try {
         const audioBuffer = Buffer.from(audioBase64, 'base64');
         const filePath = `users/${uid}/meetings/${meetingId}.webm`;
-        const file = storageBucket.file(filePath);
+        const file = getStorageBucket().file(filePath);
 
         await file.save(audioBuffer, {
           metadata: {
@@ -105,7 +105,7 @@ export async function POST(request: Request) {
       createdAt: new Date().toISOString(),
     };
 
-    const docRef = await db.collection('meetings').add(meetingData);
+    const docRef = await getDb().collection('meetings').add(meetingData);
 
     return NextResponse.json({ id: docRef.id, ...meetingData }, { status: 201, headers: corsHeaders });
   } catch (error) {

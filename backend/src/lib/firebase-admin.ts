@@ -6,25 +6,49 @@ import path from 'path';
 import fs from 'fs';
 
 let serviceAccount: Record<string, unknown> | undefined;
+
+// Try local file first (for development)
 try {
   const serviceAccountPath = path.resolve(process.cwd(), 'firebase-service-account.json');
-  const fileContents = fs.readFileSync(serviceAccountPath, 'utf8');
-  serviceAccount = JSON.parse(fileContents);
+  if (fs.existsSync(serviceAccountPath)) {
+    const fileContents = fs.readFileSync(serviceAccountPath, 'utf8');
+    serviceAccount = JSON.parse(fileContents);
+  }
 } catch (error) {
-  if (process.env.FIREBASE_SERVICE_ACCOUNT_KEY) {
-    serviceAccount = JSON.parse(process.env.FIREBASE_SERVICE_ACCOUNT_KEY);
-  } else {
-    console.error('Failed to load Firebase Service Account JSON.', error);
+  // Ignore local file errors
+}
+
+// Fallback to environment variable (for Vercel)
+if (!serviceAccount && process.env.FIREBASE_SERVICE_ACCOUNT_KEY) {
+  try {
+    // Vercel sometimes escapes newlines or adds extra quotes
+    let envKey = process.env.FIREBASE_SERVICE_ACCOUNT_KEY;
+    if (envKey.startsWith('"') && envKey.endsWith('"')) {
+      envKey = envKey.slice(1, -1);
+    }
+    // Replace literal \n with actual newlines just in case
+    envKey = envKey.replace(/\\n/g, '\n');
+    
+    serviceAccount = JSON.parse(envKey);
+  } catch (error) {
+    console.error('❌ Failed to parse FIREBASE_SERVICE_ACCOUNT_KEY. Ensure it is valid JSON:', error);
   }
 }
 
-if (!getApps().length && serviceAccount) {
-  initializeApp({
-    credential: cert(serviceAccount),
-    storageBucket: 'embrace-ai-notetaker.firebasestorage.app',
-  });
+// Initialize only once
+if (!getApps().length) {
+  if (serviceAccount) {
+    initializeApp({
+      credential: cert(serviceAccount),
+      storageBucket: 'embrace-ai-notetaker.firebasestorage.app',
+    });
+    console.log('✅ Firebase Admin initialized successfully.');
+  } else {
+    console.error('❌ CRITICAL: No Firebase Service Account found. API will fail.');
+  }
 }
 
-export const db = getFirestore();
-export const auth = getAuth();
-export const storageBucket = getStorage().bucket();
+// Export instances lazily so the server doesn't crash on import (which breaks CORS preflight)
+export const getDb = () => getFirestore();
+export const getAdminAuth = () => getAuth();
+export const getStorageBucket = () => getStorage().bucket();
