@@ -114,6 +114,18 @@ export const MeetingHistory: React.FC = () => {
 
             {/* Content */}
             <div className="flex-1 overflow-y-auto p-5 space-y-6 text-[13px] leading-relaxed">
+              {/* Audio Playback */}
+              {(selectedMeeting as any).audioUrl && (
+                <div className="mb-4">
+                  <div className="text-[10px] text-[#888] uppercase tracking-widest mb-2 border-b border-[#e5e3d9] pb-1">Audio Recording</div>
+                  <audio 
+                    controls 
+                    src={(selectedMeeting as any).audioUrl} 
+                    className="w-full h-10 mt-2"
+                  />
+                </div>
+              )}
+
               {/* Summary */}
               {selectedMeeting.transcript?.summary && (
                 <div>

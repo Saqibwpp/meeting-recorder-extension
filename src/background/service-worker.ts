@@ -8,7 +8,7 @@ import {
   setActiveSession
 } from '../services/storage';
 import { transcribeWithGemini } from '../services/gemini';
-import { syncMeetingToLocalRepo } from '../services/sync';
+
 
 let activeRecordingTabId: number | null = null;
 let currentMeeting: Meeting | null = null;
@@ -258,12 +258,13 @@ chrome.runtime.onMessage.addListener((message: Record<string, unknown>, sender, 
     const mimeType = message.mimeType as string;
     const durationSeconds = message.durationSeconds as number;
     const authToken = message.authToken as string;
+    const audioUrl = message.audioUrl as string;
 
     activeRecordingTabId = null;
     currentMeeting = null;
     setActiveSession(null);
 
-    processFinalRecording(meetingId, audioBase64, mimeType, durationSeconds, authToken)
+    processFinalRecording(meetingId, audioBase64, mimeType, durationSeconds, authToken, audioUrl)
       .then(() => console.log('✅ Meeting processing & transcription finished!'))
       .catch(err => console.error('❌ Error processing recording:', err));
 
@@ -278,7 +279,8 @@ async function processFinalRecording(
   audioBase64: string,
   mimeType: string,
   durationSeconds: number,
-  authToken?: string
+  authToken?: string,
+  audioUrl?: string
 ): Promise<void> {
   const meetings = await getStoredMeetings();
   const meeting = meetings.find(m => m.id === meetingId) || currentMeeting;
@@ -293,8 +295,9 @@ async function processFinalRecording(
   if (!settings.geminiApiKey) {
     meeting.status = 'completed';
     meeting.error = 'No Gemini API Key provided. Audio saved, transcription skipped.';
-    await upsertMeeting(meeting);
-    await syncMeetingToLocalRepo(meeting, audioBase64, mimeType);
+    
+    // We no longer sync to local repo, so we just log a warning and return.
+    console.warn('Meeting skipped: No Gemini API Key provided.');
     return;
   }
 
@@ -312,10 +315,12 @@ async function processFinalRecording(
 
     meeting.transcript = transcript;
     meeting.status = 'completed';
+    if (audioUrl) {
+      (meeting as any).audioUrl = audioUrl; // Storing the audio URL natively
+    }
 
-    // 1. Save to Local Extension Storage (fallback)
-    await upsertMeeting(meeting);
-    await syncMeetingToLocalRepo(meeting, audioBase64, mimeType);
+    // 1. Remove Local Extension Storage (fallback) entirely to prevent duplication
+    // We only rely on the backend now.
 
     // 2. Upload to Next.js API securely
     if (authToken) {
@@ -338,7 +343,6 @@ async function processFinalRecording(
     console.error('Transcription failed:', error);
     meeting.status = 'error';
     meeting.error = error.message;
-    await upsertMeeting(meeting);
-    await syncMeetingToLocalRepo(meeting, audioBase64, mimeType);
+    // We no longer fallback to local storage
   }
 }

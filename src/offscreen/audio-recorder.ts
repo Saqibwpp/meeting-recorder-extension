@@ -1,4 +1,5 @@
-import { auth } from '../services/firebase';
+import { auth, storage } from '../services/firebase';
+import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
 
 let mediaRecorder: MediaRecorder | null = null;
 let recordedChunks: Blob[] = [];
@@ -180,12 +181,22 @@ async function startDualStreamRecording(tabStreamId: string): Promise<void> {
         const base64 = await blobToBase64(blob);
 
         let authToken = '';
+        let audioUrl = '';
+        
         try {
           if (auth.currentUser) {
             authToken = await auth.currentUser.getIdToken(true);
+            const uid = auth.currentUser.uid;
+            
+            // Upload raw audio to Firebase Storage
+            console.log('☁️ [Offscreen] Uploading audio to Firebase Storage...');
+            const storageRef = ref(storage, `users/${uid}/meetings/${currentMeetingId}.webm`);
+            await uploadBytes(storageRef, blob);
+            audioUrl = await getDownloadURL(storageRef);
+            console.log('✅ [Offscreen] Audio uploaded successfully:', audioUrl);
           }
         } catch (e) {
-          console.error('Failed to get Firebase Auth token in offscreen:', e);
+          console.error('Failed to authenticate or upload audio to Firebase Storage:', e);
         }
 
         // Send to background service worker
@@ -195,7 +206,8 @@ async function startDualStreamRecording(tabStreamId: string): Promise<void> {
           audioBase64: base64,
           mimeType,
           durationSeconds,
-          authToken
+          authToken,
+          audioUrl
         });
       } catch (err) {
         console.error('❌ [Offscreen] Error processing recording on stop:', err);
