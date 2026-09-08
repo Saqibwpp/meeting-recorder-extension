@@ -1,11 +1,30 @@
-import { Meeting, MeetingPlatform, ExtensionMessage } from '../types';
-import { getStoredSettings, getStoredMeetings, upsertMeeting } from '../services/storage';
+import { Meeting, MeetingPlatform } from '../types';
+import {
+  getStoredSettings,
+  getStoredMeetings,
+  upsertMeeting,
+  getActiveSession,
+  setActiveSession
+} from '../services/storage';
 import { transcribeWithGemini } from '../services/gemini';
 import { syncMeetingToLocalRepo } from '../services/sync';
 
 let activeRecordingTabId: number | null = null;
 let currentMeeting: Meeting | null = null;
-let recordingTimer: number | null = null;
+let recordingTimer: NodeJS.Timeout | null = null;
+const notifiedTabs = new Set<number>();
+
+// 1. Maintain keepalive connection from Offscreen document
+chrome.runtime.onConnect.addListener((port) => {
+  if (port.name === 'offscreen-keepalive') {
+    port.onMessage.addListener(() => {
+      // Ping received, keeping service worker alive
+    });
+    port.onDisconnect.addListener(() => {
+      console.log('🔌 Offscreen keepalive port disconnected');
+    });
+  }
+});
 
 // Determine platform from URL
 function detectPlatform(url?: string): MeetingPlatform {
@@ -17,37 +36,44 @@ function detectPlatform(url?: string): MeetingPlatform {
   return 'browser-tab';
 }
 
-// 1. Monitor Tabs for Meeting Activity
+// 2. Monitor Tabs for Meeting Activity (Clean, non-spammy detection)
 chrome.tabs.onUpdated.addListener(async (tabId, changeInfo, tab) => {
   const settings = await getStoredSettings();
   if (!settings.autoDetectMeetings) return;
 
+  // Only trigger once when navigation completes, NOT on every audio toggle!
+  if (changeInfo.status !== 'complete') return;
+
   const url = tab.url || '';
   const platform = detectPlatform(url);
 
-  // If tab navigated to meeting URL or became audible during a meeting call
   if (platform !== 'unknown' && platform !== 'browser-tab') {
-    if (changeInfo.status === 'complete' || changeInfo.audible === true) {
-      if (activeRecordingTabId !== tabId) {
-        // Send prompt message to content script
-        try {
-          await chrome.tabs.sendMessage(tabId, {
-            type: 'MEETING_DETECTED',
-            payload: {
-              platform,
-              title: tab.title || 'Meeting',
-              url
-            }
-          });
-        } catch {
-          // Content script might not be loaded yet
+    if (notifiedTabs.has(tabId) || activeRecordingTabId === tabId) return;
+
+    notifiedTabs.add(tabId);
+    try {
+      await chrome.tabs.sendMessage(tabId, {
+        type: 'MEETING_DETECTED',
+        payload: {
+          platform,
+          title: tab.title || 'Meeting',
+          url
         }
-      }
+      });
+    } catch {
+      // Tab or script not ready
     }
   }
 });
 
-// 2. Offscreen Document Manager for Persistent Audio Capture
+chrome.tabs.onRemoved.addListener((tabId) => {
+  notifiedTabs.delete(tabId);
+  if (activeRecordingTabId === tabId) {
+    handleStopRecording().catch(console.error);
+  }
+});
+
+// 3. Offscreen Document Manager
 async function ensureOffscreenDocument(): Promise<void> {
   const existingContexts = await chrome.runtime.getContexts({
     contextTypes: [chrome.runtime.ContextType.OFFSCREEN_DOCUMENT]
@@ -64,7 +90,7 @@ async function ensureOffscreenDocument(): Promise<void> {
   });
 }
 
-// 3. Start Recording
+// 4. Start Recording
 async function handleStartRecording(targetTabId?: number): Promise<void> {
   const [activeTab] = await chrome.tabs.query({ active: true, currentWindow: true });
   const tabId = targetTabId || activeTab?.id;
@@ -75,7 +101,7 @@ async function handleStartRecording(targetTabId?: number): Promise<void> {
 
   await ensureOffscreenDocument();
 
-  // Get Tab Capture stream ID
+  // Obtain short-lived streamId for the target tab
   const streamId = await new Promise<string>((resolve, reject) => {
     chrome.tabCapture.getMediaStreamId({ targetTabId: tabId }, (id) => {
       if (chrome.runtime.lastError) {
@@ -89,16 +115,27 @@ async function handleStartRecording(targetTabId?: number): Promise<void> {
   activeRecordingTabId = tabId;
   const platform = detectPlatform(activeTab?.url);
   const meetingId = `meeting_${Date.now()}`;
+  const now = Date.now();
 
   currentMeeting = {
     id: meetingId,
     title: activeTab?.title || 'Meeting Recording',
     url: activeTab?.url || '',
     platform,
-    startTime: Date.now(),
+    startTime: now,
     durationSeconds: 0,
     status: 'recording'
   };
+
+  // Persist session to disk so worker restarts NEVER lose active recording state
+  await setActiveSession({
+    isRecording: true,
+    meetingId,
+    startTime: now,
+    targetTabId: tabId,
+    title: currentMeeting.title,
+    platform
+  });
 
   await upsertMeeting(currentMeeting);
 
@@ -106,15 +143,13 @@ async function handleStartRecording(targetTabId?: number): Promise<void> {
   chrome.action.setBadgeText({ text: 'REC' });
   chrome.action.setBadgeBackgroundColor({ color: '#EF4444' });
 
-  // Start duration counter
-  let seconds = 0;
+  // Start duration counter in memory
   if (recordingTimer) clearInterval(recordingTimer);
   recordingTimer = setInterval(() => {
-    seconds += 1;
     if (currentMeeting) {
-      currentMeeting.durationSeconds = seconds;
+      currentMeeting.durationSeconds = Math.floor((Date.now() - now) / 1000);
     }
-  }, 1000) as unknown as number;
+  }, 1000);
 
   // Signal offscreen document to start capturing
   chrome.runtime.sendMessage({
@@ -125,13 +160,14 @@ async function handleStartRecording(targetTabId?: number): Promise<void> {
   });
 }
 
-// 4. Stop Recording
+// 5. Stop Recording
 async function handleStopRecording(): Promise<void> {
   if (recordingTimer) {
     clearInterval(recordingTimer);
     recordingTimer = null;
   }
 
+  await setActiveSession(null);
   chrome.action.setBadgeText({ text: '' });
 
   // Signal offscreen document to stop
@@ -141,10 +177,11 @@ async function handleStopRecording(): Promise<void> {
   });
 }
 
-// 5. Message Handling
+// 6. Message Handling
 chrome.runtime.onMessage.addListener((message: any, sender, sendResponse) => {
   if (message.type === 'START_RECORDING') {
-    handleStartRecording(message.payload?.tabId)
+    const tabId = message.payload?.tabId || sender.tab?.id;
+    handleStartRecording(tabId)
       .then(() => sendResponse({ success: true }))
       .catch(err => sendResponse({ success: false, error: err.message }));
     return true;
@@ -158,11 +195,33 @@ chrome.runtime.onMessage.addListener((message: any, sender, sendResponse) => {
   }
 
   if (message.type === 'GET_RECORDING_STATUS') {
-    sendResponse({
-      isRecording: activeRecordingTabId !== null,
-      currentMeeting,
-      activeTabId: activeRecordingTabId
-    });
+    (async () => {
+      // If in-memory state is null, restore from persisted storage session
+      if (activeRecordingTabId === null) {
+        const session = await getActiveSession();
+        if (session && session.isRecording) {
+          activeRecordingTabId = session.targetTabId;
+          const currentDuration = Math.floor((Date.now() - session.startTime) / 1000);
+          currentMeeting = {
+            id: session.meetingId,
+            title: session.title,
+            url: '',
+            platform: session.platform as MeetingPlatform,
+            startTime: session.startTime,
+            durationSeconds: currentDuration,
+            status: 'recording'
+          };
+          chrome.action.setBadgeText({ text: 'REC' });
+          chrome.action.setBadgeBackgroundColor({ color: '#EF4444' });
+        }
+      }
+
+      sendResponse({
+        isRecording: activeRecordingTabId !== null,
+        currentMeeting,
+        activeTabId: activeRecordingTabId
+      });
+    })();
     return true;
   }
 
@@ -170,6 +229,8 @@ chrome.runtime.onMessage.addListener((message: any, sender, sendResponse) => {
     // Received final audio payload from offscreen document
     const { meetingId, audioBase64, mimeType, durationSeconds } = message;
     activeRecordingTabId = null;
+    currentMeeting = null;
+    setActiveSession(null);
 
     processFinalRecording(meetingId, audioBase64, mimeType, durationSeconds)
       .then(() => console.log('✅ Meeting processing & transcription finished!'))
@@ -180,7 +241,7 @@ chrome.runtime.onMessage.addListener((message: any, sender, sendResponse) => {
   }
 });
 
-// 6. Transcription & Storage Pipeline
+// 7. Transcription & Storage Pipeline
 async function processFinalRecording(
   meetingId: string,
   audioBase64: string,
@@ -221,7 +282,7 @@ async function processFinalRecording(
     meeting.status = 'completed';
     await upsertMeeting(meeting);
 
-    // Sync audio and JSON transcript to local records/ directory via local server
+    // Sync audio and JSON transcript to local records/ directory
     await syncMeetingToLocalRepo(meeting, audioBase64, mimeType);
   } catch (err) {
     const error = err instanceof Error ? err : new Error(String(err));
@@ -229,7 +290,6 @@ async function processFinalRecording(
     meeting.status = 'error';
     meeting.error = error.message;
     await upsertMeeting(meeting);
-    // Still sync audio even if transcription had an error
     await syncMeetingToLocalRepo(meeting, audioBase64, mimeType);
   }
 }

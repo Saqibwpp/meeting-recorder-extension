@@ -3,6 +3,16 @@ import { DEFAULT_PRIMARY_MODEL, DEFAULT_FALLBACK_MODELS } from './gemini';
 
 const MEETINGS_KEY = 'ai_meetings_history';
 const SETTINGS_KEY = 'ai_meetings_settings';
+const ACTIVE_SESSION_KEY = 'ai_active_recording_session';
+
+export interface ActiveRecordingSession {
+  isRecording: boolean;
+  meetingId: string;
+  startTime: number;
+  targetTabId: number;
+  title: string;
+  platform: string;
+}
 
 const DEFAULT_SETTINGS: ExtensionSettings = {
   geminiApiKey: (import.meta.env.VITE_GEMINI_API_KEY as string) || '',
@@ -57,4 +67,25 @@ export async function saveStoredSettings(settings: Partial<ExtensionSettings>): 
   const updated: ExtensionSettings = { ...current, ...settings };
   await chrome.storage.local.set({ [SETTINGS_KEY]: updated });
   return updated;
+}
+
+export async function getActiveSession(): Promise<ActiveRecordingSession | null> {
+  try {
+    const result = await chrome.storage.local.get([ACTIVE_SESSION_KEY]);
+    return (result[ACTIVE_SESSION_KEY] as ActiveRecordingSession) || null;
+  } catch {
+    return null;
+  }
+}
+
+export async function setActiveSession(session: ActiveRecordingSession | null): Promise<void> {
+  try {
+    if (session) {
+      await chrome.storage.local.set({ [ACTIVE_SESSION_KEY]: session });
+    } else {
+      await chrome.storage.local.remove([ACTIVE_SESSION_KEY]);
+    }
+  } catch (err) {
+    console.error('Failed to update active session:', err);
+  }
 }

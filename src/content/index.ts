@@ -1,22 +1,26 @@
 import { ExtensionMessage } from '../types';
 
 let promptContainer: HTMLDivElement | null = null;
+let hasHandledMeetingInTab = false;
 
 // Listen for background trigger
 chrome.runtime.onMessage.addListener((message: ExtensionMessage) => {
   if (message.type === 'MEETING_DETECTED') {
-    showMeetingPrompt(message.payload.title, message.payload.platform);
+    if (!hasHandledMeetingInTab) {
+      showMeetingPrompt(message.payload.title, message.payload.platform);
+    }
   }
 });
 
-// Also hook microphone usage in the page
+// Hook microphone usage in the page
 function monitorMicrophoneUsage() {
   const originalGetUserMedia = navigator.mediaDevices?.getUserMedia?.bind(navigator.mediaDevices);
   if (originalGetUserMedia) {
     navigator.mediaDevices.getUserMedia = async function (constraints) {
       if (constraints && typeof constraints === 'object' && constraints.audio) {
-        console.log('🎙️ [AI Notetaker] Microphone access detected in meeting tab!');
-        showMeetingPrompt(document.title, 'browser-tab');
+        if (!hasHandledMeetingInTab) {
+          showMeetingPrompt(document.title, 'browser-tab');
+        }
       }
       return originalGetUserMedia(constraints);
     };
@@ -25,12 +29,23 @@ function monitorMicrophoneUsage() {
 
 try {
   monitorMicrophoneUsage();
-} catch (e) {
+} catch {
   // Ignore in restricted frames
 }
 
-function showMeetingPrompt(title: string, platform: string) {
-  if (promptContainer) return; // Already showing
+async function showMeetingPrompt(title: string, platform: string) {
+  if (promptContainer || hasHandledMeetingInTab) return;
+
+  // Check if extension is already recording
+  try {
+    const status = await chrome.runtime.sendMessage({ type: 'GET_RECORDING_STATUS' });
+    if (status?.isRecording) {
+      hasHandledMeetingInTab = true;
+      return;
+    }
+  } catch {
+    // Service worker not ready
+  }
 
   promptContainer = document.createElement('div');
   promptContainer.id = 'ai-meeting-recorder-prompt';
@@ -40,7 +55,7 @@ function showMeetingPrompt(title: string, platform: string) {
     right: 20px;
     z-index: 9999999;
     font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
-    background: rgba(15, 23, 42, 0.92);
+    background: rgba(15, 23, 42, 0.94);
     backdrop-filter: blur(16px);
     border: 1px solid rgba(255, 255, 255, 0.15);
     border-radius: 16px;
@@ -54,7 +69,7 @@ function showMeetingPrompt(title: string, platform: string) {
     animation: aiSlideIn 0.3s cubic-bezier(0.16, 1, 0.3, 1);
   `;
 
-  // Inject animation keyframes
+  // Inject animation styles if not already present
   if (!document.getElementById('ai-notetaker-styles')) {
     const style = document.createElement('style');
     style.id = 'ai-notetaker-styles';
@@ -95,10 +110,12 @@ function showMeetingPrompt(title: string, platform: string) {
   document.body.appendChild(promptContainer);
 
   document.getElementById('ai-btn-dismiss')?.addEventListener('click', () => {
+    hasHandledMeetingInTab = true;
     removePrompt();
   });
 
   document.getElementById('ai-btn-record')?.addEventListener('click', () => {
+    hasHandledMeetingInTab = true;
     chrome.runtime.sendMessage({ type: 'START_RECORDING' });
     if (promptContainer) {
       promptContainer.innerHTML = `
@@ -108,7 +125,7 @@ function showMeetingPrompt(title: string, platform: string) {
         </div>
         <div style="font-size: 12px; color: #94a3b8;">Click the extension icon at any time to stop and transcribe.</div>
       `;
-      setTimeout(removePrompt, 3500);
+      setTimeout(removePrompt, 3000);
     }
   });
 }

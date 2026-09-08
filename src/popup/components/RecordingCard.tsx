@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Mic, Square, Radio, AlertCircle, Sparkles, Volume2 } from 'lucide-react';
+import { Mic, Square, Radio, AlertCircle, Sparkles, Volume2, ShieldAlert } from 'lucide-react';
 import { useRecordingStatusQuery, useStartRecordingMutation, useStopRecordingMutation } from '../../hooks/useMeetings';
 import { useSettingsQuery } from '../../hooks/useSettings';
 
@@ -14,6 +14,7 @@ export const RecordingCard: React.FC = () => {
   const duration = currentMeeting?.durationSeconds ?? 0;
 
   const [activeTabTitle, setActiveTabTitle] = useState<string>('Detecting call...');
+  const [micPermissionGranted, setMicPermissionGranted] = useState<boolean | null>(null);
 
   useEffect(() => {
     chrome.tabs.query({ active: true, currentWindow: true }, (tabs) => {
@@ -21,6 +22,16 @@ export const RecordingCard: React.FC = () => {
         setActiveTabTitle(tabs[0].title);
       }
     });
+
+    // Check mic permission state on mount
+    navigator.permissions?.query?.({ name: 'microphone' as PermissionName })
+      .then((perm) => {
+        setMicPermissionGranted(perm.state === 'granted');
+        perm.onchange = () => setMicPermissionGranted(perm.state === 'granted');
+      })
+      .catch(() => {
+        // Permissions query not supported for this context
+      });
   }, []);
 
   const formatTime = (totalSeconds: number) => {
@@ -29,10 +40,19 @@ export const RecordingCard: React.FC = () => {
     return `${String(mins).padStart(2, '0')}:${String(secs).padStart(2, '0')}`;
   };
 
-  const handleToggleRecord = () => {
+  const handleToggleRecord = async () => {
     if (isRecording) {
       stopMutation.mutate();
     } else {
+      // Proactively prompt user for mic permission in popup if not granted yet
+      try {
+        const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+        stream.getTracks().forEach((t) => t.stop());
+        setMicPermissionGranted(true);
+      } catch (err) {
+        console.warn('Microphone permission not granted in popup context:', err);
+        setMicPermissionGranted(false);
+      }
       startMutation.mutate(undefined);
     }
   };
@@ -46,6 +66,30 @@ export const RecordingCard: React.FC = () => {
         <div className="flex items-center gap-2.5 px-3.5 py-2.5 text-xs text-amber-300 bg-amber-950/40 border border-amber-800/50 rounded-xl">
           <AlertCircle className="w-4 h-4 shrink-0 text-amber-400" />
           <span>No Gemini API key set. Go to Settings to enable AI transcription.</span>
+        </div>
+      )}
+
+      {/* Mic Permission Helper Banner */}
+      {micPermissionGranted === false && !isRecording && (
+        <div className="flex items-center justify-between px-3.5 py-2 text-xs text-rose-300 bg-rose-950/40 border border-rose-800/50 rounded-xl">
+          <div className="flex items-center gap-2">
+            <ShieldAlert className="w-4 h-4 text-rose-400 shrink-0" />
+            <span>Mic access needed for dual-stream audio.</span>
+          </div>
+          <button
+            onClick={async () => {
+              try {
+                const s = await navigator.mediaDevices.getUserMedia({ audio: true });
+                s.getTracks().forEach(t => t.stop());
+                setMicPermissionGranted(true);
+              } catch {
+                setMicPermissionGranted(false);
+              }
+            }}
+            className="px-2.5 py-1 bg-rose-600 hover:bg-rose-500 text-white rounded-lg text-[11px] font-semibold transition-colors"
+          >
+            Allow Mic
+          </button>
         </div>
       )}
 
