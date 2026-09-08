@@ -35,18 +35,21 @@ export const RecordingCard: React.FC = () => {
         onError: (err) => alert(`Failed to stop: ${err.message}`)
       });
     } else {
-      // Don't let mic permission hang the start button
       const requestMic = navigator.mediaDevices.getUserMedia({ audio: true })
         .then((stream) => stream.getTracks().forEach(t => t.stop()))
-        .catch((err) => console.warn("Mic permission denied (tab audio will still record):", err));
-        
-      Promise.race([
-        requestMic,
-        new Promise(resolve => setTimeout(resolve, 500))
-      ]).then(() => {
-        startMutation.mutate(undefined, {
-          onError: (err) => alert(`Failed to start recording:\n\n${err.message}\n\nTroubleshooting:\n1. Refresh the meeting tab to clear any stuck capture state.\n2. Ensure Chrome has microphone permissions.`)
+        .catch((err) => {
+          console.warn("Mic permission denied:", err);
+          alert("Microphone permission is required to record your voice!\n\nChrome does not allow permission prompts inside small popups. We are opening the extension in a full tab so you can click 'Allow'.");
+          chrome.tabs.create({ url: chrome.runtime.getURL('src/popup/index.html') });
+          throw new Error("Microphone permission required.");
         });
+        
+      requestMic.then(() => {
+        startMutation.mutate(undefined, {
+          onError: (err) => alert(`Failed to start recording:\n\n${err.message}\n\nTroubleshooting:\n1. Refresh the meeting tab to clear any stuck capture state.`)
+        });
+      }).catch(() => {
+        // Error already handled and alerted above
       });
     }
   };
