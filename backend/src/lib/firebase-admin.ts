@@ -35,20 +35,31 @@ if (!serviceAccount && process.env.FIREBASE_SERVICE_ACCOUNT_KEY) {
   }
 }
 
-// Initialize only once
-if (!getApps().length) {
-  if (serviceAccount) {
-    initializeApp({
-      credential: cert(serviceAccount),
-      storageBucket: 'embrace-ai-notetaker.firebasestorage.app',
-    });
-    console.log('✅ Firebase Admin initialized successfully.');
-  } else {
-    console.error('❌ CRITICAL: No Firebase Service Account found. API will fail.');
+// Initialize only once lazily
+function initApp() {
+  if (!getApps().length) {
+    if (serviceAccount) {
+      initializeApp({
+        credential: cert(serviceAccount),
+        storageBucket: 'embrace-ai-notetaker.firebasestorage.app',
+      });
+      console.log('✅ Firebase Admin initialized successfully.');
+    } else {
+      console.error('❌ CRITICAL: No Firebase Service Account found. API will fail.');
+    }
   }
 }
 
 // Export instances lazily so the server doesn't crash on import (which breaks CORS preflight)
-export const getDb = () => getFirestore();
-export const getAdminAuth = () => getAuth();
-export const getStorageBucket = () => getStorage().bucket();
+export const getDb = () => {
+  initApp();
+  return getFirestore();
+};
+export const getAdminAuth = () => {
+  initApp();
+  return getAuth();
+};
+export const getStorageBucket = () => {
+  initApp();
+  return getStorage().bucket();
+};
