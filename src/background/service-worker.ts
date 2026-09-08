@@ -325,7 +325,8 @@ async function processFinalRecording(
     // 2. Upload to Next.js API securely
     if (authToken) {
       try {
-        await axios.post('http://localhost:3000/api/meetings', meeting, {
+        const apiUrl = import.meta.env.VITE_API_BASE_URL || 'http://localhost:3000';
+        await axios.post(`${apiUrl}/api/meetings`, meeting, {
           headers: {
             'Content-Type': 'application/json',
             'Authorization': `Bearer ${authToken}`
