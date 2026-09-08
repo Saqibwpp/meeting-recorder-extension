@@ -21,13 +21,21 @@ try {
 // Fallback to environment variable (for Vercel)
 if (!serviceAccount && process.env.FIREBASE_SERVICE_ACCOUNT_KEY) {
   try {
-    // Vercel sometimes escapes newlines or adds extra quotes
     let envKey = process.env.FIREBASE_SERVICE_ACCOUNT_KEY;
-    if (envKey.startsWith('"') && envKey.endsWith('"')) {
-      envKey = envKey.slice(1, -1);
+    
+    // Check if the key is base64 encoded (a robust way to bypass Vercel string escaping issues)
+    if (!envKey.trim().startsWith('{')) {
+      try {
+        envKey = Buffer.from(envKey, 'base64').toString('utf8');
+      } catch (e) {
+        // Fallback to raw if not base64
+      }
+    } else {
+      if (envKey.startsWith('"') && envKey.endsWith('"')) {
+        envKey = envKey.slice(1, -1);
+      }
+      envKey = envKey.replace(/\\n/g, '\n');
     }
-    // Replace literal \n with actual newlines just in case
-    envKey = envKey.replace(/\\n/g, '\n');
 
     serviceAccount = JSON.parse(envKey);
   } catch (error) {
