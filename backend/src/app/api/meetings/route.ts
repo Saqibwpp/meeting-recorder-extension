@@ -42,25 +42,36 @@ async function verifyAuth(request: Request) {
 
 export async function GET(request: Request) {
   const corsHeaders = getCorsHeaders(request);
-  try {
-    const uid = await verifyAuth(request);
+  let uid: string;
 
+  try {
+    uid = await verifyAuth(request);
+  } catch (error) {
+    const err = error as Error;
+    return NextResponse.json({ error: err.message }, { status: 401, headers: corsHeaders });
+  }
+
+  try {
     // Fetch meetings for this user
+    // We sort in JS to avoid needing a Firestore composite index for (userId + startTime)
     const meetingsSnapshot = await getDb()
       .collection('meetings')
       .where('userId', '==', uid)
-      .orderBy('startTime', 'desc')
       .get();
 
-    const meetings = meetingsSnapshot.docs.map((doc) => ({
-      id: doc.id,
-      ...doc.data(),
-    }));
+    const meetings = meetingsSnapshot.docs
+      .map((doc) => ({
+        id: doc.id,
+        ...doc.data(),
+      }))
+      // @ts-expect-error - sorting generic data
+      .sort((a, b) => b.startTime - a.startTime);
 
     return NextResponse.json({ meetings }, { headers: corsHeaders });
   } catch (error) {
     const err = error as Error;
-    return NextResponse.json({ error: err.message }, { status: 401, headers: corsHeaders });
+    console.error('Firestore GET Error:', err);
+    return NextResponse.json({ error: err.message }, { status: 500, headers: corsHeaders });
   }
 }
 
