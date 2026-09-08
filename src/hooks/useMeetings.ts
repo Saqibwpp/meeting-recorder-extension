@@ -25,7 +25,8 @@ export function useMeetingsQuery() {
       }
 
       const token = await user.getIdToken();
-      const response = await axios.get('http://localhost:3000/api/meetings', {
+      const apiUrl = import.meta.env.VITE_API_BASE_URL || 'http://localhost:3000';
+      const response = await axios.get(`${apiUrl}/api/meetings`, {
         headers: {
           'Authorization': `Bearer ${token}`
         }
