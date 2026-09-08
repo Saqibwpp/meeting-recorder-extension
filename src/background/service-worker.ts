@@ -120,11 +120,7 @@ async function handleStartRecording(targetTabId?: number): Promise<void> {
     const tabId = targetTabId || activeTab?.id;
     if (!tabId) throw new Error('No active tab found to record');
 
-    try {
-      await ensureOffscreenDocument();
-    } catch (e: any) {
-      throw new Error(`ensureOffscreenDocument failed: ${e.message}`);
-    }
+    await ensureOffscreenDocument();
 
     const streamId = await new Promise<string>((resolve, reject) => {
       chrome.tabCapture.getMediaStreamId({ targetTabId: tabId }, (id) => {
@@ -171,23 +167,17 @@ async function handleStartRecording(targetTabId?: number): Promise<void> {
       }
     }, 1000);
 
-    try {
-      chrome.runtime.sendMessage({
-        target: 'offscreen',
-        type: 'START_OFFSCREEN_RECORDING',
-        streamId,
-        meetingId
-      }, (response) => {
-        if (chrome.runtime.lastError) {
-          console.error("Offscreen communication failed:", chrome.runtime.lastError.message);
-          handleStopRecording().catch(console.error);
-        }
-      });
-    } catch (err: any) {
-      console.error("Failed to send message to offscreen:", err);
-      await handleStopRecording();
-      throw new Error(`sendMessage failed: ${err.message}`);
-    }
+    chrome.runtime.sendMessage({
+      target: 'offscreen',
+      type: 'START_OFFSCREEN_RECORDING',
+      streamId,
+      meetingId
+    }, (response) => {
+      if (chrome.runtime.lastError) {
+        console.error("Offscreen communication failed:", chrome.runtime.lastError.message);
+        handleStopRecording().catch(console.error);
+      }
+    });
   } catch (error: any) {
     console.error("handleStartRecording FATAL ERROR:", error);
     throw error;
