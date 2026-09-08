@@ -1,4 +1,5 @@
 import { Meeting, MeetingPlatform } from '../types';
+import axios from 'axios';
 import {
   getStoredSettings,
   getStoredMeetings,
@@ -256,12 +257,13 @@ chrome.runtime.onMessage.addListener((message: Record<string, unknown>, sender, 
     const audioBase64 = message.audioBase64 as string;
     const mimeType = message.mimeType as string;
     const durationSeconds = message.durationSeconds as number;
+    const authToken = message.authToken as string;
 
     activeRecordingTabId = null;
     currentMeeting = null;
     setActiveSession(null);
 
-    processFinalRecording(meetingId, audioBase64, mimeType, durationSeconds)
+    processFinalRecording(meetingId, audioBase64, mimeType, durationSeconds, authToken)
       .then(() => console.log('✅ Meeting processing & transcription finished!'))
       .catch(err => console.error('❌ Error processing recording:', err));
 
@@ -275,7 +277,8 @@ async function processFinalRecording(
   meetingId: string,
   audioBase64: string,
   mimeType: string,
-  durationSeconds: number
+  durationSeconds: number,
+  authToken?: string
 ): Promise<void> {
   const meetings = await getStoredMeetings();
   const meeting = meetings.find(m => m.id === meetingId) || currentMeeting;
@@ -309,8 +312,27 @@ async function processFinalRecording(
 
     meeting.transcript = transcript;
     meeting.status = 'completed';
+
+    // 1. Save to Local Extension Storage (fallback)
     await upsertMeeting(meeting);
     await syncMeetingToLocalRepo(meeting, audioBase64, mimeType);
+
+    // 2. Upload to Next.js API securely
+    if (authToken) {
+      try {
+        await axios.post('http://localhost:3000/api/meetings', meeting, {
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${authToken}`
+          }
+        });
+        console.log('✅ Successfully synced meeting to backend via Next.js API');
+      } catch (uploadErr) {
+        console.error('Error syncing meeting to backend:', uploadErr);
+      }
+    } else {
+      console.warn('⚠️ No Firebase Auth token found. Meeting saved locally but not synced to backend.');
+    }
   } catch (err) {
     const error = err instanceof Error ? err : new Error(String(err));
     console.error('Transcription failed:', error);

@@ -1,6 +1,7 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { Meeting } from '../types';
 import { getStoredMeetings } from '../services/storage';
+import axios from 'axios';
 
 export const MEETINGS_QUERY_KEY = ['meetings'];
 export const RECORDING_STATUS_KEY = ['recording_status'];
@@ -11,11 +12,26 @@ interface RecordingStatusResponse {
   activeTabId: number | null;
 }
 
+import { auth } from '../services/firebase';
+
 export function useMeetingsQuery() {
   return useQuery<Meeting[], Error>({
     queryKey: MEETINGS_QUERY_KEY,
     queryFn: async () => {
-      return await getStoredMeetings();
+      // If we're not logged in, just fallback to empty array or local storage
+      const user = auth.currentUser;
+      if (!user) {
+        return await getStoredMeetings();
+      }
+
+      const token = await user.getIdToken();
+      const response = await axios.get('http://localhost:3000/api/meetings', {
+        headers: {
+          'Authorization': `Bearer ${token}`
+        }
+      });
+      
+      return response.data.meetings;
     },
     refetchInterval: 3000 // auto-refresh meeting history
   });

@@ -1,3 +1,5 @@
+import { auth } from '../services/firebase';
+
 let mediaRecorder: MediaRecorder | null = null;
 let recordedChunks: Blob[] = [];
 let audioContext: AudioContext | null = null;
@@ -177,13 +179,23 @@ async function startDualStreamRecording(tabStreamId: string): Promise<void> {
 
         const base64 = await blobToBase64(blob);
 
+        let authToken = '';
+        try {
+          if (auth.currentUser) {
+            authToken = await auth.currentUser.getIdToken(true);
+          }
+        } catch (e) {
+          console.error('Failed to get Firebase Auth token in offscreen:', e);
+        }
+
         // Send to background service worker
         chrome.runtime.sendMessage({
           type: 'OFFSCREEN_RECORDING_DATA',
           meetingId: currentMeetingId,
           audioBase64: base64,
           mimeType,
-          durationSeconds
+          durationSeconds,
+          authToken
         });
       } catch (err) {
         console.error('❌ [Offscreen] Error processing recording on stop:', err);
