@@ -14,7 +14,7 @@ try {
     const fileContents = fs.readFileSync(serviceAccountPath, 'utf8');
     serviceAccount = JSON.parse(fileContents);
   }
-} catch (error) {
+} catch {
   // Ignore local file errors
 }
 
@@ -28,7 +28,7 @@ if (!serviceAccount && process.env.FIREBASE_SERVICE_ACCOUNT_KEY) {
     }
     // Replace literal \n with actual newlines just in case
     envKey = envKey.replace(/\\n/g, '\n');
-    
+
     serviceAccount = JSON.parse(envKey);
   } catch (error) {
     console.error('❌ Failed to parse FIREBASE_SERVICE_ACCOUNT_KEY. Ensure it is valid JSON:', error);
