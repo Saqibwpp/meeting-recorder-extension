@@ -1,6 +1,7 @@
 import { initializeApp, getApps, cert } from 'firebase-admin/app';
 import { getFirestore } from 'firebase-admin/firestore';
 import { getAuth } from 'firebase-admin/auth';
+import { getStorage } from 'firebase-admin/storage';
 import path from 'path';
 import fs from 'fs';
 
@@ -20,8 +21,10 @@ try {
 if (!getApps().length && serviceAccount) {
   initializeApp({
     credential: cert(serviceAccount),
+    storageBucket: 'embrace-ai-notetaker.firebasestorage.app',
   });
 }
 
 export const db = getFirestore();
 export const auth = getAuth();
+export const storageBucket = getStorage().bucket();

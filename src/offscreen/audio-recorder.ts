@@ -1,5 +1,4 @@
-import { auth, storage } from '../services/firebase';
-import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
+import { auth } from '../services/firebase';
 
 let mediaRecorder: MediaRecorder | null = null;
 let recordedChunks: Blob[] = [];
@@ -187,34 +186,23 @@ async function startDualStreamRecording(tabStreamId: string): Promise<void> {
         const base64 = await blobToBase64(blob);
 
         let authToken = '';
-        let audioUrl = '';
         
         try {
           if (auth.currentUser) {
             authToken = await auth.currentUser.getIdToken(true);
-            const uid = auth.currentUser.uid;
-            
-            // Upload raw audio to Firebase Storage (non-blocking for mic release)
-            console.log('☁️ [Offscreen] Uploading audio to Firebase Storage...');
-            const storageRef = ref(storage, `users/${uid}/meetings/${currentMeetingId}.webm`);
-            await uploadBytes(storageRef, blob);
-            audioUrl = await getDownloadURL(storageRef);
-            console.log('✅ [Offscreen] Audio uploaded successfully:', audioUrl);
           }
         } catch (e) {
-          console.error('⚠️ Firebase Storage upload failed (continuing without audio URL):', e);
-          // Not fatal - we still send the transcript without audio URL
+          console.error('Failed to get Firebase Auth token in offscreen:', e);
         }
 
-        // Send to background service worker
+        // Send to background service worker — backend handles audio upload to Firebase Storage
         chrome.runtime.sendMessage({
           type: 'OFFSCREEN_RECORDING_DATA',
           meetingId: currentMeetingId,
           audioBase64: base64,
           mimeType,
           durationSeconds,
-          authToken,
-          audioUrl
+          authToken
         });
       } catch (err) {
         console.error('❌ [Offscreen] Error processing recording on stop:', err);

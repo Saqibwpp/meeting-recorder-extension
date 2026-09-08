@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server';
-import { db, auth } from '@/lib/firebase-admin';
+import { db, auth, storageBucket } from '@/lib/firebase-admin';
 
 // Helper to verify the user's token from the Authorization header
 async function verifyAuth(request: Request) {
@@ -45,14 +45,41 @@ export async function POST(request: Request) {
     const uid = await verifyAuth(request);
     const body = await request.json();
 
-    // Body should contain meeting details: title, startTime, durationSeconds, transcript, etc.
+    const { audioBase64, mimeType, id: meetingId, ...rest } = body;
+
+    let audioUrl = '';
+
+    // Upload audio to Firebase Storage server-side (no CORS issues!)
+    if (audioBase64 && meetingId) {
+      try {
+        const audioBuffer = Buffer.from(audioBase64, 'base64');
+        const filePath = `users/${uid}/meetings/${meetingId}.webm`;
+        const file = storageBucket.file(filePath);
+
+        await file.save(audioBuffer, {
+          metadata: {
+            contentType: mimeType || 'audio/webm',
+          },
+        });
+
+        // Make publicly readable and get URL
+        await file.makePublic();
+        audioUrl = file.publicUrl();
+        console.log('✅ Audio uploaded to Firebase Storage:', audioUrl);
+      } catch (storageErr) {
+        console.error('⚠️ Audio upload to Storage failed (saving transcript only):', storageErr);
+      }
+    }
+
+    // Save to Firestore (without the raw base64 - just the URL)
     const meetingData = {
-      ...body,
+      ...rest,
+      id: meetingId,
       userId: uid,
+      audioUrl,
       createdAt: new Date().toISOString(),
     };
 
-    // Save to Firestore
     const docRef = await db.collection('meetings').add(meetingData);
 
     return NextResponse.json({ id: docRef.id, ...meetingData }, { status: 201 });
