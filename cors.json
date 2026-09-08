@@ -1,8 +1,0 @@
-[
-  {
-    "origin": ["chrome-extension://*", "http://localhost:*", "https://meeting-recorder-extension.vercel.app"],
-    "method": ["GET", "POST", "PUT", "DELETE", "OPTIONS", "HEAD"],
-    "responseHeader": ["Content-Type", "Authorization", "Content-Length", "User-Agent", "x-goog-resumable"],
-    "maxAgeSeconds": 3600
-  }
-]
