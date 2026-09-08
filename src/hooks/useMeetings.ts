@@ -26,13 +26,20 @@ export function useMeetingsQuery() {
 
       const token = await user.getIdToken();
       const apiUrl = import.meta.env.VITE_API_BASE_URL || 'http://localhost:3000';
-      const response = await axios.get(`${apiUrl}/api/meetings`, {
-        headers: {
-          'Authorization': `Bearer ${token}`
-        }
-      });
+      const [response, localMeetings] = await Promise.all([
+        axios.get(`${apiUrl}/api/meetings`, {
+          headers: {
+            'Authorization': `Bearer ${token}`
+          }
+        }),
+        getStoredMeetings()
+      ]);
       
-      return response.data.meetings;
+      const remoteMeetings = response.data.meetings || [];
+      const processingMeetings = localMeetings.filter(m => m.status === 'processing' || m.status === 'recording');
+      
+      // Show processing meetings at the top, followed by completed remote meetings
+      return [...processingMeetings, ...remoteMeetings];
     },
     refetchInterval: 3000 // auto-refresh meeting history
   });
