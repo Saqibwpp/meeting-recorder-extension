@@ -162,7 +162,7 @@ async function startDualStreamRecording(tabStreamId: string): Promise<void> {
     };
 
     mediaRecorder.onstop = async () => {
-      console.log('🛑 [Offscreen] MediaRecorder stopped. Packaging audio...');
+      console.log('🛑 [Offscreen] MediaRecorder stopped. Cleaning up streams immediately...');
       if (keepAliveTimer) {
         clearInterval(keepAliveTimer);
         keepAliveTimer = null;
@@ -172,8 +172,14 @@ async function startDualStreamRecording(tabStreamId: string): Promise<void> {
         keepAlivePort = null;
       }
 
+      // ✅ IMMEDIATELY stop all media streams so the mic indicator turns off
+      if (tabStream) tabStream.getTracks().forEach(t => t.stop());
+      if (micStream) micStream.getTracks().forEach(t => t.stop());
+      if (audioContext && audioContext.state !== 'closed') {
+        audioContext.close().catch(() => {});
+      }
+
       try {
-        console.log('🛑 [Offscreen] MediaRecorder stopped. Packaging audio...');
         const blob = new Blob(recordedChunks, { type: mimeType });
         const durationSeconds = Math.round((Date.now() - startTime) / 1000);
         console.log(`📦 [Offscreen] Final recording size: ${blob.size} bytes, duration: ${durationSeconds}s`);
@@ -188,7 +194,7 @@ async function startDualStreamRecording(tabStreamId: string): Promise<void> {
             authToken = await auth.currentUser.getIdToken(true);
             const uid = auth.currentUser.uid;
             
-            // Upload raw audio to Firebase Storage
+            // Upload raw audio to Firebase Storage (non-blocking for mic release)
             console.log('☁️ [Offscreen] Uploading audio to Firebase Storage...');
             const storageRef = ref(storage, `users/${uid}/meetings/${currentMeetingId}.webm`);
             await uploadBytes(storageRef, blob);
@@ -196,7 +202,8 @@ async function startDualStreamRecording(tabStreamId: string): Promise<void> {
             console.log('✅ [Offscreen] Audio uploaded successfully:', audioUrl);
           }
         } catch (e) {
-          console.error('Failed to authenticate or upload audio to Firebase Storage:', e);
+          console.error('⚠️ Firebase Storage upload failed (continuing without audio URL):', e);
+          // Not fatal - we still send the transcript without audio URL
         }
 
         // Send to background service worker
@@ -211,13 +218,6 @@ async function startDualStreamRecording(tabStreamId: string): Promise<void> {
         });
       } catch (err) {
         console.error('❌ [Offscreen] Error processing recording on stop:', err);
-      } finally {
-        // Clean up streams & audio context
-        if (tabStream) tabStream.getTracks().forEach(t => t.stop());
-        if (micStream) micStream.getTracks().forEach(t => t.stop());
-        if (audioContext && audioContext.state !== 'closed') {
-          await audioContext.close();
-        }
       }
     };
 
