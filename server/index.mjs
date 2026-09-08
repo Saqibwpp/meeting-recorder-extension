@@ -105,6 +105,10 @@ const TEST_HTML = `<!DOCTYPE html>
       background: linear-gradient(135deg, #059669, #047857);
       transform: translateY(-1px);
     }
+    .btn-mic.active {
+      background: linear-gradient(135deg, #ef4444, #dc2626);
+      box-shadow: 0 4px 14px rgba(239, 68, 68, 0.4);
+    }
     .btn-audio {
       background: rgba(255, 255, 255, 0.08);
       color: #e2e8f0;
@@ -149,18 +153,19 @@ const TEST_HTML = `<!DOCTYPE html>
 
     <div class="actions">
       <button class="btn-mic" id="btn-start-mic">
-        🎙️ 1. Request Microphone (Triggers Auto-Detect Toast)
+        🎙️ 1. Request Microphone (Join Call)
       </button>
       <button class="btn-audio" id="btn-play-sound">
-        🔊 2. Play Simulated Remote Speaker (Tab Audio)
+        🔊 2. Play Remote Speaker Audio (Tab Audio)
       </button>
     </div>
 
     <div class="info-callout">
-      💡 <strong>What happens when you click:</strong><br>
-      1. Clicking "Request Microphone" will trigger the extension's floating prompt in the top-right.<br>
-      2. Click <strong>"Start Recording"</strong> on the prompt (or click the extension icon in Chrome).<br>
-      3. Speak for 10–15 seconds, then stop recording from the popup to see Gemini transcribe!
+      💡 <strong>How to test:</strong><br>
+      1. Click <strong>"1. Request Microphone"</strong>: The extension will prompt to record in the top right.<br>
+      2. Click <strong>"Start Recording"</strong> on the prompt or in the extension popup.<br>
+      3. Click <strong>"2. Play Remote Speaker Audio"</strong> and speak into your mic.<br>
+      4. Click <strong>"Stop & Transcribe"</strong> in the extension popup.
     </div>
 
     <div class="status-box" id="log-box">
@@ -178,12 +183,23 @@ const TEST_HTML = `<!DOCTYPE html>
     let micStream = null;
 
     document.getElementById('btn-start-mic').addEventListener('click', async () => {
+      const btn = document.getElementById('btn-start-mic');
+      if (micStream) {
+        // Toggle OFF
+        micStream.getTracks().forEach(t => t.stop());
+        micStream = null;
+        btn.textContent = '🎙️ 1. Request Microphone (Join Call)';
+        btn.classList.remove('active');
+        log('🛑 Microphone stopped & call left. OS microphone icon will turn off.');
+        return;
+      }
+
       try {
         log('⏳ Requesting microphone access (navigator.mediaDevices.getUserMedia)...');
         micStream = await navigator.mediaDevices.getUserMedia({ audio: true });
-        log('✅ Microphone ACTIVE! The extension prompt should appear in the top-right corner now.');
-        document.getElementById('btn-start-mic').textContent = '✅ Microphone Active (In Call)';
-        document.getElementById('btn-start-mic').style.background = '#059669';
+        log('✅ Microphone ACTIVE! The extension prompt should appear in the top-right corner.');
+        btn.textContent = '🔴 Leave Call & Turn Off Microphone';
+        btn.classList.add('active');
       } catch (err) {
         log('❌ Mic permission error: ' + err.message);
       }
@@ -191,12 +207,29 @@ const TEST_HTML = `<!DOCTYPE html>
 
     document.getElementById('btn-play-sound').addEventListener('click', () => {
       try {
-        const text = "Hi everyone! Welcome to the meeting. We are testing the AI meeting notetaker dual-stream recording with Gemini 3.1 Flash. The roadmap looks great, and next steps are to review pull requests by end of day.";
+        log('🔊 Generating audio tones and speech synthesis through Web Audio pipeline...');
+        
+        // 1. Play Web Audio tone pattern (Guaranteed to route through TabCapture!)
+        const AudioContextClass = window.AudioContext || window.webkitAudioContext;
+        const ctx = new AudioContextClass();
+        const osc = ctx.createOscillator();
+        const gain = ctx.createGain();
+        osc.type = 'sine';
+        osc.frequency.setValueAtTime(440, ctx.currentTime);
+        osc.frequency.exponentialRampToValueAtTime(880, ctx.currentTime + 1.5);
+        gain.gain.setValueAtTime(0.3, ctx.currentTime);
+        gain.gain.exponentialRampToValueAtTime(0.01, ctx.currentTime + 2.0);
+        osc.connect(gain);
+        gain.connect(ctx.destination);
+        osc.start();
+        osc.stop(ctx.currentTime + 2.0);
+
+        // 2. Play speech
+        const text = "Hello, this is the remote speaker on your call. We are reviewing the sprint roadmap and testing the meeting notetaker.";
         const utter = new SpeechSynthesisUtterance(text);
-        utter.rate = 1.0;
-        utter.pitch = 1.0;
         window.speechSynthesis.speak(utter);
-        log('🔊 Remote participant speaking synthesized speech for tab audio capture...');
+
+        log('✅ Played sound pattern through tab audio!');
       } catch (e) {
         log('Audio synthesis error: ' + e.message);
       }

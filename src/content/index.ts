@@ -3,7 +3,7 @@ import { ExtensionMessage } from '../types';
 let promptContainer: HTMLDivElement | null = null;
 let hasHandledMeetingInTab = false;
 
-// Listen for background trigger
+// 1. Listen for background trigger
 chrome.runtime.onMessage.addListener((message: ExtensionMessage) => {
   if (message.type === 'MEETING_DETECTED') {
     if (!hasHandledMeetingInTab) {
@@ -12,8 +12,16 @@ chrome.runtime.onMessage.addListener((message: ExtensionMessage) => {
   }
 });
 
-// Hook microphone usage in the page
-function monitorMicrophoneUsage() {
+// 2. Listen for in-page microphone detector event from MAIN world
+window.addEventListener('AI_NOTETAKER_MIC_DETECTED', (event: any) => {
+  if (!hasHandledMeetingInTab) {
+    const title = event.detail?.title || document.title;
+    showMeetingPrompt(title, 'browser-tab');
+  }
+});
+
+// Also fallback hook in isolated world just in case
+try {
   const originalGetUserMedia = navigator.mediaDevices?.getUserMedia?.bind(navigator.mediaDevices);
   if (originalGetUserMedia) {
     navigator.mediaDevices.getUserMedia = async function (constraints) {
@@ -25,10 +33,6 @@ function monitorMicrophoneUsage() {
       return originalGetUserMedia(constraints);
     };
   }
-}
-
-try {
-  monitorMicrophoneUsage();
 } catch {
   // Ignore in restricted frames
 }

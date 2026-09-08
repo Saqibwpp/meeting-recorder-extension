@@ -14,7 +14,7 @@ export const RecordingCard: React.FC = () => {
   const duration = currentMeeting?.durationSeconds ?? 0;
 
   const [activeTabTitle, setActiveTabTitle] = useState<string>('Detecting call...');
-  const [micPermissionGranted, setMicPermissionGranted] = useState<boolean | null>(null);
+  const [micPermissionGranted, setMicPermissionGranted] = useState<boolean>(true);
 
   useEffect(() => {
     chrome.tabs.query({ active: true, currentWindow: true }, (tabs) => {
@@ -30,9 +30,13 @@ export const RecordingCard: React.FC = () => {
         perm.onchange = () => setMicPermissionGranted(perm.state === 'granted');
       })
       .catch(() => {
-        // Permissions query not supported for this context
+        // Fallback: test if permission was granted
       });
   }, []);
+
+  const openPermissionTab = () => {
+    chrome.tabs.create({ url: chrome.runtime.getURL('src/popup/permission.html') });
+  };
 
   const formatTime = (totalSeconds: number) => {
     const mins = Math.floor(totalSeconds / 60);
@@ -44,14 +48,10 @@ export const RecordingCard: React.FC = () => {
     if (isRecording) {
       stopMutation.mutate();
     } else {
-      // Proactively prompt user for mic permission in popup if not granted yet
-      try {
-        const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
-        stream.getTracks().forEach((t) => t.stop());
-        setMicPermissionGranted(true);
-      } catch (err) {
-        console.warn('Microphone permission not granted in popup context:', err);
-        setMicPermissionGranted(false);
+      // If mic permission is not yet granted, open the dedicated permission tab first
+      if (!micPermissionGranted) {
+        openPermissionTab();
+        return;
       }
       startMutation.mutate(undefined);
     }
@@ -70,23 +70,15 @@ export const RecordingCard: React.FC = () => {
       )}
 
       {/* Mic Permission Helper Banner */}
-      {micPermissionGranted === false && !isRecording && (
-        <div className="flex items-center justify-between px-3.5 py-2 text-xs text-rose-300 bg-rose-950/40 border border-rose-800/50 rounded-xl">
+      {!micPermissionGranted && !isRecording && (
+        <div className="flex items-center justify-between px-3.5 py-2.5 text-xs text-rose-300 bg-rose-950/40 border border-rose-800/50 rounded-xl">
           <div className="flex items-center gap-2">
             <ShieldAlert className="w-4 h-4 text-rose-400 shrink-0" />
             <span>Mic access needed for dual-stream audio.</span>
           </div>
           <button
-            onClick={async () => {
-              try {
-                const s = await navigator.mediaDevices.getUserMedia({ audio: true });
-                s.getTracks().forEach(t => t.stop());
-                setMicPermissionGranted(true);
-              } catch {
-                setMicPermissionGranted(false);
-              }
-            }}
-            className="px-2.5 py-1 bg-rose-600 hover:bg-rose-500 text-white rounded-lg text-[11px] font-semibold transition-colors"
+            onClick={openPermissionTab}
+            className="px-3 py-1 bg-rose-600 hover:bg-rose-500 text-white rounded-lg text-[11px] font-semibold transition-colors cursor-pointer shadow"
           >
             Allow Mic
           </button>
@@ -155,7 +147,7 @@ export const RecordingCard: React.FC = () => {
           isRecording
             ? 'bg-gradient-to-r from-red-600 to-rose-700 hover:from-red-500 hover:to-rose-600 text-white shadow-red-900/30'
             : 'bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-500 hover:to-teal-500 text-white shadow-emerald-900/30'
-        } disabled:opacity-50 disabled:cursor-not-allowed`}
+        } disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer`}
       >
         {isPending ? (
           <Radio className="w-5 h-5 animate-spin" />

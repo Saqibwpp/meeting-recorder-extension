@@ -1,4 +1,4 @@
-let e=null,r=!1;chrome.runtime.onMessage.addListener(t=>{t.type==="MEETING_DETECTED"&&(r||s(t.payload.title,t.payload.platform))});function l(){var n,a;const t=(a=(n=navigator.mediaDevices)==null?void 0:n.getUserMedia)==null?void 0:a.bind(navigator.mediaDevices);t&&(navigator.mediaDevices.getUserMedia=async function(i){return i&&typeof i=="object"&&i.audio&&(r||s(document.title)),t(i)})}try{l()}catch{}async function s(t,n){var a,i;if(!(e||r)){try{const o=await chrome.runtime.sendMessage({type:"GET_RECORDING_STATUS"});if(o!=null&&o.isRecording){r=!0;return}}catch{}if(e=document.createElement("div"),e.id="ai-meeting-recorder-prompt",e.style.cssText=`
+let i=null,n=!1;chrome.runtime.onMessage.addListener(e=>{e.type==="MEETING_DETECTED"&&(n||a(e.payload.title,e.payload.platform))});window.addEventListener("AI_NOTETAKER_MIC_DETECTED",e=>{var t;if(!n){const r=((t=e.detail)==null?void 0:t.title)||document.title;a(r)}});var l,c;try{const e=(c=(l=navigator.mediaDevices)==null?void 0:l.getUserMedia)==null?void 0:c.bind(navigator.mediaDevices);e&&(navigator.mediaDevices.getUserMedia=async function(t){return t&&typeof t=="object"&&t.audio&&(n||a(document.title,"browser-tab")),e(t)})}catch{}async function a(e,t){var r,d;if(!(i||n)){try{const o=await chrome.runtime.sendMessage({type:"GET_RECORDING_STATUS"});if(o!=null&&o.isRecording){n=!0;return}}catch{}if(i=document.createElement("div"),i.id="ai-meeting-recorder-prompt",i.style.cssText=`
     position: fixed;
     top: 20px;
     right: 20px;
@@ -25,12 +25,12 @@ let e=null,r=!1;chrome.runtime.onMessage.addListener(t=>{t.type==="MEETING_DETEC
         0%, 100% { transform: scale(1); opacity: 1; }
         50% { transform: scale(1.15); opacity: 0.7; }
       }
-    `,document.head.appendChild(o)}e.innerHTML=`
+    `,document.head.appendChild(o)}i.innerHTML=`
     <div style="display: flex; align-items: center; gap: 10px;">
       <div style="width: 12px; height: 12px; border-radius: 50%; background: #22c55e; box-shadow: 0 0 10px #22c55e; animation: aiPulse 2s infinite;"></div>
       <div style="flex: 1;">
         <div style="font-size: 14px; font-weight: 600; color: #f8fafc;">Meeting Detected</div>
-        <div style="font-size: 12px; color: #94a3b8; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">${p(t||"Active Call")}</div>
+        <div style="font-size: 12px; color: #94a3b8; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">${p(e||"Active Call")}</div>
       </div>
     </div>
     <div style="font-size: 13px; color: #cbd5e1; line-height: 1.4;">
@@ -44,10 +44,10 @@ let e=null,r=!1;chrome.runtime.onMessage.addListener(t=>{t.type==="MEETING_DETEC
         Start Recording
       </button>
     </div>
-  `,document.body.appendChild(e),(a=document.getElementById("ai-btn-dismiss"))==null||a.addEventListener("click",()=>{r=!0,d()}),(i=document.getElementById("ai-btn-record"))==null||i.addEventListener("click",()=>{r=!0,chrome.runtime.sendMessage({type:"START_RECORDING"}),e&&(e.innerHTML=`
+  `,document.body.appendChild(i),(r=document.getElementById("ai-btn-dismiss"))==null||r.addEventListener("click",()=>{n=!0,s()}),(d=document.getElementById("ai-btn-record"))==null||d.addEventListener("click",()=>{n=!0,chrome.runtime.sendMessage({type:"START_RECORDING"}),i&&(i.innerHTML=`
         <div style="display: flex; align-items: center; gap: 10px;">
           <div style="width: 12px; height: 12px; border-radius: 50%; background: #ef4444; box-shadow: 0 0 10px #ef4444; animation: aiPulse 1.2s infinite;"></div>
           <div style="font-size: 14px; font-weight: 600; color: #ef4444;">Recording In Progress...</div>
         </div>
         <div style="font-size: 12px; color: #94a3b8;">Click the extension icon at any time to stop and transcribe.</div>
-      `,setTimeout(d,3e3))})}}function d(){e&&(e.remove(),e=null)}function p(t){return t.replace(/[&<>'"]/g,n=>({"&":"&amp;","<":"&lt;",">":"&gt;","'":"&#39;",'"':"&quot;"})[n]||n)}
+      `,setTimeout(s,3e3))})}}function s(){i&&(i.remove(),i=null)}function p(e){return e.replace(/[&<>'"]/g,t=>({"&":"&amp;","<":"&lt;",">":"&gt;","'":"&#39;",'"':"&quot;"})[t]||t)}
