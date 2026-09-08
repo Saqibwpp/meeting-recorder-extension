@@ -46,6 +46,12 @@ export async function upsertMeeting(meeting: Meeting): Promise<void> {
   await saveStoredMeetings(current);
 }
 
+export async function deleteMeeting(id: string): Promise<void> {
+  const current = await getStoredMeetings();
+  const updated = current.filter(m => m.id !== id);
+  await saveStoredMeetings(updated);
+}
+
 export async function getStoredSettings(): Promise<ExtensionSettings> {
   try {
     const result = await chrome.storage.local.get([SETTINGS_KEY]);

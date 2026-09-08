@@ -4,6 +4,7 @@ import {
   getStoredSettings,
   getStoredMeetings,
   upsertMeeting,
+  deleteMeeting,
   getActiveSession,
   setActiveSession
 } from '../services/storage';
@@ -333,6 +334,9 @@ async function processFinalRecording(
           }
         });
         console.log('✅ Successfully synced meeting to backend via Next.js API');
+        
+        // 3. Delete from Chrome Local Storage to prevent infinite bloating
+        await deleteMeeting(meeting.id);
       } catch (uploadErr) {
         console.error('Error syncing meeting to backend:', uploadErr);
       }
