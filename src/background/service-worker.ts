@@ -59,6 +59,7 @@ function detectPlatform(url?: string): MeetingPlatform {
   if (url.includes('teams.microsoft.com') || url.includes('teams.live.com')) return 'microsoft-teams';
   if (url.includes('zoom.us')) return 'zoom';
   if (url.includes('slack.com')) return 'slack';
+  if (url.includes('localhost')) return 'local-test';
   return 'browser-tab';
 }
 
@@ -165,12 +166,23 @@ async function handleStartRecording(targetTabId?: number): Promise<void> {
     }
   }, 1000);
 
-  chrome.runtime.sendMessage({
-    target: 'offscreen',
-    type: 'START_OFFSCREEN_RECORDING',
-    streamId,
-    meetingId
-  });
+  try {
+    chrome.runtime.sendMessage({
+      target: 'offscreen',
+      type: 'START_OFFSCREEN_RECORDING',
+      streamId,
+      meetingId
+    }, (response) => {
+      if (chrome.runtime.lastError) {
+        console.error("Offscreen communication failed:", chrome.runtime.lastError.message);
+        handleStopRecording().catch(console.error);
+      }
+    });
+  } catch (err) {
+    console.error("Failed to send message to offscreen:", err);
+    await handleStopRecording();
+    throw err;
+  }
 }
 
 // ── Stop Recording ──
@@ -211,11 +223,31 @@ chrome.runtime.onMessage.addListener((message: Record<string, unknown>, sender, 
   }
 
   if (type === 'GET_RECORDING_STATUS') {
-    // Synchronous: session was already restored at startup
-    sendResponse({
-      isRecording: activeRecordingTabId !== null,
-      currentMeeting,
-      activeTabId: activeRecordingTabId
+    getActiveSession().then((session) => {
+      if (session && session.isRecording && activeRecordingTabId === null) {
+        activeRecordingTabId = session.targetTabId;
+        currentMeeting = {
+          id: session.meetingId,
+          title: session.title,
+          url: '',
+          platform: session.platform as MeetingPlatform,
+          startTime: session.startTime,
+          durationSeconds: Math.floor((Date.now() - session.startTime) / 1000),
+          status: 'recording'
+        };
+      }
+      sendResponse({
+        isRecording: activeRecordingTabId !== null,
+        currentMeeting,
+        activeTabId: activeRecordingTabId
+      });
+    }).catch(err => {
+      console.error("Failed to get session:", err);
+      sendResponse({
+        isRecording: activeRecordingTabId !== null,
+        currentMeeting,
+        activeTabId: activeRecordingTabId
+      });
     });
     return true;
   }

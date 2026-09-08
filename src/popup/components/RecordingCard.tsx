@@ -31,9 +31,23 @@ export const RecordingCard: React.FC = () => {
 
   const handleToggleRecord = () => {
     if (isRecording) {
-      stopMutation.mutate();
+      stopMutation.mutate(undefined, {
+        onError: (err) => alert(`Failed to stop: ${err.message}`)
+      });
     } else {
-      startMutation.mutate(undefined);
+      // Don't let mic permission hang the start button
+      const requestMic = navigator.mediaDevices.getUserMedia({ audio: true })
+        .then((stream) => stream.getTracks().forEach(t => t.stop()))
+        .catch((err) => console.warn("Mic permission denied (tab audio will still record):", err));
+        
+      Promise.race([
+        requestMic,
+        new Promise(resolve => setTimeout(resolve, 500))
+      ]).then(() => {
+        startMutation.mutate(undefined, {
+          onError: (err) => alert(`Failed to start recording:\n\n${err.message}\n\nTroubleshooting:\n1. Refresh the meeting tab to clear any stuck capture state.\n2. Ensure Chrome has microphone permissions.`)
+        });
+      });
     }
   };
 

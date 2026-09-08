@@ -1,4 +1,4 @@
-export type MeetingPlatform = 'google-meet' | 'microsoft-teams' | 'zoom' | 'slack' | 'browser-tab' | 'unknown';
+export type MeetingPlatform = 'google-meet' | 'microsoft-teams' | 'zoom' | 'slack' | 'browser-tab' | 'local-test' | 'unknown';
 
 export interface TranscriptSegment {
   id: number;

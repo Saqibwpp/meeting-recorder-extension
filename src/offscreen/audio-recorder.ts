@@ -40,7 +40,6 @@ async function startDualStreamRecording(tabStreamId: string): Promise<void> {
     }
 
     // 1. Capture Tab Audio via streamId
-    // Chrome MV3 tabCapture requires video constraint with matching chromeMediaSourceId
     let tabStream: MediaStream | null = null;
     try {
       tabStream = await navigator.mediaDevices.getUserMedia({
@@ -60,9 +59,14 @@ async function startDualStreamRecording(tabStreamId: string): Promise<void> {
         }
       });
 
-      // Immediately stop video tracks since we only need the audio
-      tabStream.getVideoTracks().forEach(track => track.stop());
       console.log('🔊 [Offscreen] Successfully captured tab audio stream, tracks:', tabStream.getAudioTracks().length);
+      
+      // Trick Chrome into keeping the stream alive by binding it to a hidden video element attached to the DOM
+      const videoEl = document.createElement('video');
+      videoEl.srcObject = tabStream;
+      videoEl.muted = true;
+      document.body.appendChild(videoEl);
+      videoEl.play().catch(e => console.warn('Video play failed:', e));
     } catch (tabErr) {
       console.error('❌ [Offscreen] Error capturing tab audio:', tabErr);
     }
@@ -82,7 +86,7 @@ async function startDualStreamRecording(tabStreamId: string): Promise<void> {
       console.warn('⚠️ [Offscreen] Microphone permission not granted or mic unavailable (will record tab only):', micErr);
     }
 
-    // 3. Web Audio API Setup: 2-Channel Stereo Merger
+    // 3. Web Audio API Setup: Mono Mixer
     audioContext = new AudioContext({ sampleRate: 48000 });
     if (audioContext.state === 'suspended') {
       await audioContext.resume();
@@ -90,29 +94,35 @@ async function startDualStreamRecording(tabStreamId: string): Promise<void> {
     }
 
     const destination = audioContext.createMediaStreamDestination();
-    const merger = audioContext.createChannelMerger(2);
+    const mixer = audioContext.createGain();
+    mixer.gain.value = 1.0;
+    mixer.connect(destination);
+
+    // Keep stream alive with an inaudible oscillator
+    const osc = audioContext.createOscillator();
+    const oscGain = audioContext.createGain();
+    oscGain.gain.value = 0.0001; // barely audible
+    osc.connect(oscGain);
+    oscGain.connect(mixer);
+    osc.start();
 
     let hasAudioTrack = false;
 
-    // Connect Microphone to Channel 0 (Left)
+    // Connect Microphone
     if (micStream && micStream.getAudioTracks().length > 0) {
       const micSource = audioContext.createMediaStreamSource(micStream);
-      micSource.connect(merger, 0, 0);
+      micSource.connect(mixer);
       hasAudioTrack = true;
     }
 
-    // Connect Tab Audio to Channel 1 (Right)
+    // Connect Tab Audio
     if (tabStream && tabStream.getAudioTracks().length > 0) {
       const tabSource = audioContext.createMediaStreamSource(tabStream);
-      tabSource.connect(merger, 0, 1);
-      // Route Tab Audio to speakers so the user can still hear the call!
-      tabSource.connect(audioContext.destination);
+      tabSource.connect(mixer);
       hasAudioTrack = true;
     }
 
-    if (hasAudioTrack) {
-      merger.connect(destination);
-    } else {
+    if (!hasAudioTrack) {
       console.error('❌ [Offscreen] Neither microphone nor tab audio tracks were available!');
     }
 
@@ -130,6 +140,10 @@ async function startDualStreamRecording(tabStreamId: string): Promise<void> {
       mimeType,
       audioBitsPerSecond: 128000
     });
+
+    mediaRecorder.onerror = (event: Event) => {
+      console.error('❌ [Offscreen] MediaRecorder error:', (event as any).error);
+    };
 
     mediaRecorder.ondataavailable = (event) => {
       if (event.data && event.data.size > 0) {
@@ -149,30 +163,35 @@ async function startDualStreamRecording(tabStreamId: string): Promise<void> {
         keepAlivePort = null;
       }
 
-      const blob = new Blob(recordedChunks, { type: mimeType });
-      const durationSeconds = Math.round((Date.now() - startTime) / 1000);
-      console.log(`📦 [Offscreen] Final recording size: ${blob.size} bytes, duration: ${durationSeconds}s`);
+      try {
+        console.log('🛑 [Offscreen] MediaRecorder stopped. Packaging audio...');
+        const blob = new Blob(recordedChunks, { type: mimeType });
+        const durationSeconds = Math.round((Date.now() - startTime) / 1000);
+        console.log(`📦 [Offscreen] Final recording size: ${blob.size} bytes, duration: ${durationSeconds}s`);
 
-      const base64 = await blobToBase64(blob);
+        const base64 = await blobToBase64(blob);
 
-      // Clean up streams & audio context
-      if (tabStream) tabStream.getTracks().forEach(t => t.stop());
-      if (micStream) micStream.getTracks().forEach(t => t.stop());
-      if (audioContext && audioContext.state !== 'closed') {
-        await audioContext.close();
+        // Send to background service worker
+        chrome.runtime.sendMessage({
+          type: 'OFFSCREEN_RECORDING_DATA',
+          meetingId: currentMeetingId,
+          audioBase64: base64,
+          mimeType,
+          durationSeconds
+        });
+      } catch (err) {
+        console.error('❌ [Offscreen] Error processing recording on stop:', err);
+      } finally {
+        // Clean up streams & audio context
+        if (tabStream) tabStream.getTracks().forEach(t => t.stop());
+        if (micStream) micStream.getTracks().forEach(t => t.stop());
+        if (audioContext && audioContext.state !== 'closed') {
+          await audioContext.close();
+        }
       }
-
-      // Send to background service worker
-      chrome.runtime.sendMessage({
-        type: 'OFFSCREEN_RECORDING_DATA',
-        meetingId: currentMeetingId,
-        audioBase64: base64,
-        mimeType,
-        durationSeconds
-      });
     };
 
-    mediaRecorder.start(1000); // 1-second chunks
+    mediaRecorder.start(); // Record continuously without chunking
     console.log('🎙️ [Offscreen] Started dual-stream recording successfully!');
   } catch (err) {
     console.error('❌ [Offscreen] Failed to start offscreen recording:', err);
