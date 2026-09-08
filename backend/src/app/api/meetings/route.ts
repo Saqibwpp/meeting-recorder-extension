@@ -98,10 +98,14 @@ export async function POST(request: Request) {
           },
         });
 
-        // Make publicly readable and get URL
-        await file.makePublic();
-        audioUrl = file.publicUrl();
-        console.log('✅ Audio uploaded to Firebase Storage:', audioUrl);
+        // Generate a long-lived signed URL instead of modifying bucket public access policies
+        const [signedUrl] = await file.getSignedUrl({
+          action: 'read',
+          expires: '01-01-2100', // Effectively never expires for our use case
+        });
+        
+        audioUrl = signedUrl;
+        console.log('✅ Audio uploaded to Firebase Storage (Signed URL generated)');
       } catch (storageErr) {
         console.error('⚠️ Audio upload to Storage failed (saving transcript only):', storageErr);
       }
