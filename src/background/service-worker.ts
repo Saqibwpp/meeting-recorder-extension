@@ -11,22 +11,48 @@ import { syncMeetingToLocalRepo } from '../services/sync';
 
 let activeRecordingTabId: number | null = null;
 let currentMeeting: Meeting | null = null;
-let recordingTimer: NodeJS.Timeout | null = null;
+let recordingTimer: ReturnType<typeof setInterval> | null = null;
+let sessionRestored = false;
 const notifiedTabs = new Set<number>();
 
-// 1. Maintain keepalive connection from Offscreen document
+// ── Restore session on service worker startup ──
+// This runs ONCE when the worker wakes up, before any status polls arrive.
+(async function restoreSessionOnStartup() {
+  const session = await getActiveSession();
+  if (session && session.isRecording) {
+    activeRecordingTabId = session.targetTabId;
+    currentMeeting = {
+      id: session.meetingId,
+      title: session.title,
+      url: '',
+      platform: session.platform as MeetingPlatform,
+      startTime: session.startTime,
+      durationSeconds: Math.floor((Date.now() - session.startTime) / 1000),
+      status: 'recording'
+    };
+    chrome.action.setBadgeText({ text: 'REC' });
+    chrome.action.setBadgeBackgroundColor({ color: '#EF4444' });
+
+    // Restart the duration counter
+    recordingTimer = setInterval(() => {
+      if (currentMeeting) {
+        currentMeeting.durationSeconds = Math.floor((Date.now() - session.startTime) / 1000);
+      }
+    }, 1000);
+  }
+  sessionRestored = true;
+})();
+
+// ── Keepalive listener for offscreen port ──
 chrome.runtime.onConnect.addListener((port) => {
   if (port.name === 'offscreen-keepalive') {
     port.onMessage.addListener(() => {
-      // Ping received, keeping service worker alive
-    });
-    port.onDisconnect.addListener(() => {
-      console.log('🔌 Offscreen keepalive port disconnected');
+      // Ping received — keeps service worker alive
     });
   }
 });
 
-// Determine platform from URL
+// ── Platform detection ──
 function detectPlatform(url?: string): MeetingPlatform {
   if (!url) return 'unknown';
   if (url.includes('meet.google.com')) return 'google-meet';
@@ -36,12 +62,10 @@ function detectPlatform(url?: string): MeetingPlatform {
   return 'browser-tab';
 }
 
-// 2. Monitor Tabs for Meeting Activity (Clean, non-spammy detection)
+// ── Tab monitoring (sends prompt to content script) ──
 chrome.tabs.onUpdated.addListener(async (tabId, changeInfo, tab) => {
   const settings = await getStoredSettings();
   if (!settings.autoDetectMeetings) return;
-
-  // Only trigger once when navigation completes, NOT on every audio toggle!
   if (changeInfo.status !== 'complete') return;
 
   const url = tab.url || '';
@@ -49,19 +73,14 @@ chrome.tabs.onUpdated.addListener(async (tabId, changeInfo, tab) => {
 
   if (platform !== 'unknown' && platform !== 'browser-tab') {
     if (notifiedTabs.has(tabId) || activeRecordingTabId === tabId) return;
-
     notifiedTabs.add(tabId);
     try {
       await chrome.tabs.sendMessage(tabId, {
         type: 'MEETING_DETECTED',
-        payload: {
-          platform,
-          title: tab.title || 'Meeting',
-          url
-        }
+        payload: { platform, title: tab.title || 'Meeting', url }
       });
     } catch {
-      // Tab or script not ready
+      // Content script not injected yet
     }
   }
 });
@@ -73,15 +92,12 @@ chrome.tabs.onRemoved.addListener((tabId) => {
   }
 });
 
-// 3. Offscreen Document Manager
+// ── Offscreen document manager ──
 async function ensureOffscreenDocument(): Promise<void> {
   const existingContexts = await chrome.runtime.getContexts({
     contextTypes: [chrome.runtime.ContextType.OFFSCREEN_DOCUMENT]
   });
-
-  if (existingContexts.length > 0) {
-    return;
-  }
+  if (existingContexts.length > 0) return;
 
   await chrome.offscreen.createDocument({
     url: 'src/offscreen/offscreen.html',
@@ -90,18 +106,20 @@ async function ensureOffscreenDocument(): Promise<void> {
   });
 }
 
-// 4. Start Recording
+// ── Start Recording ──
 async function handleStartRecording(targetTabId?: number): Promise<void> {
+  // Prevent double-start
+  if (activeRecordingTabId !== null) {
+    console.warn('⚠️ Already recording, ignoring duplicate start request');
+    return;
+  }
+
   const [activeTab] = await chrome.tabs.query({ active: true, currentWindow: true });
   const tabId = targetTabId || activeTab?.id;
-
-  if (!tabId) {
-    throw new Error('No active tab found to record');
-  }
+  if (!tabId) throw new Error('No active tab found to record');
 
   await ensureOffscreenDocument();
 
-  // Obtain short-lived streamId for the target tab
   const streamId = await new Promise<string>((resolve, reject) => {
     chrome.tabCapture.getMediaStreamId({ targetTabId: tabId }, (id) => {
       if (chrome.runtime.lastError) {
@@ -127,7 +145,6 @@ async function handleStartRecording(targetTabId?: number): Promise<void> {
     status: 'recording'
   };
 
-  // Persist session to disk so worker restarts NEVER lose active recording state
   await setActiveSession({
     isRecording: true,
     meetingId,
@@ -136,14 +153,11 @@ async function handleStartRecording(targetTabId?: number): Promise<void> {
     title: currentMeeting.title,
     platform
   });
-
   await upsertMeeting(currentMeeting);
 
-  // Set extension badge
   chrome.action.setBadgeText({ text: 'REC' });
   chrome.action.setBadgeBackgroundColor({ color: '#EF4444' });
 
-  // Start duration counter in memory
   if (recordingTimer) clearInterval(recordingTimer);
   recordingTimer = setInterval(() => {
     if (currentMeeting) {
@@ -151,7 +165,6 @@ async function handleStartRecording(targetTabId?: number): Promise<void> {
     }
   }, 1000);
 
-  // Signal offscreen document to start capturing
   chrome.runtime.sendMessage({
     target: 'offscreen',
     type: 'START_OFFSCREEN_RECORDING',
@@ -160,74 +173,59 @@ async function handleStartRecording(targetTabId?: number): Promise<void> {
   });
 }
 
-// 5. Stop Recording
+// ── Stop Recording ──
 async function handleStopRecording(): Promise<void> {
   if (recordingTimer) {
     clearInterval(recordingTimer);
     recordingTimer = null;
   }
-
+  activeRecordingTabId = null;
+  currentMeeting = null;
   await setActiveSession(null);
   chrome.action.setBadgeText({ text: '' });
 
-  // Signal offscreen document to stop
   chrome.runtime.sendMessage({
     target: 'offscreen',
     type: 'STOP_OFFSCREEN_RECORDING'
   });
 }
 
-// 6. Message Handling
-chrome.runtime.onMessage.addListener((message: any, sender, sendResponse) => {
-  if (message.type === 'START_RECORDING') {
-    const tabId = message.payload?.tabId || sender.tab?.id;
+// ── Message handler ──
+chrome.runtime.onMessage.addListener((message: Record<string, unknown>, sender, sendResponse) => {
+  const type = message.type as string;
+
+  if (type === 'START_RECORDING') {
+    const payload = message.payload as { tabId?: number } | undefined;
+    const tabId = payload?.tabId ?? sender.tab?.id;
     handleStartRecording(tabId)
       .then(() => sendResponse({ success: true }))
-      .catch(err => sendResponse({ success: false, error: err.message }));
+      .catch(err => sendResponse({ success: false, error: (err as Error).message }));
     return true;
   }
 
-  if (message.type === 'STOP_RECORDING') {
+  if (type === 'STOP_RECORDING') {
     handleStopRecording()
       .then(() => sendResponse({ success: true }))
-      .catch(err => sendResponse({ success: false, error: err.message }));
+      .catch(err => sendResponse({ success: false, error: (err as Error).message }));
     return true;
   }
 
-  if (message.type === 'GET_RECORDING_STATUS') {
-    (async () => {
-      // If in-memory state is null, restore from persisted storage session
-      if (activeRecordingTabId === null) {
-        const session = await getActiveSession();
-        if (session && session.isRecording) {
-          activeRecordingTabId = session.targetTabId;
-          const currentDuration = Math.floor((Date.now() - session.startTime) / 1000);
-          currentMeeting = {
-            id: session.meetingId,
-            title: session.title,
-            url: '',
-            platform: session.platform as MeetingPlatform,
-            startTime: session.startTime,
-            durationSeconds: currentDuration,
-            status: 'recording'
-          };
-          chrome.action.setBadgeText({ text: 'REC' });
-          chrome.action.setBadgeBackgroundColor({ color: '#EF4444' });
-        }
-      }
-
-      sendResponse({
-        isRecording: activeRecordingTabId !== null,
-        currentMeeting,
-        activeTabId: activeRecordingTabId
-      });
-    })();
+  if (type === 'GET_RECORDING_STATUS') {
+    // Synchronous: session was already restored at startup
+    sendResponse({
+      isRecording: activeRecordingTabId !== null,
+      currentMeeting,
+      activeTabId: activeRecordingTabId
+    });
     return true;
   }
 
-  if (message.type === 'OFFSCREEN_RECORDING_DATA') {
-    // Received final audio payload from offscreen document
-    const { meetingId, audioBase64, mimeType, durationSeconds } = message;
+  if (type === 'OFFSCREEN_RECORDING_DATA') {
+    const meetingId = message.meetingId as string;
+    const audioBase64 = message.audioBase64 as string;
+    const mimeType = message.mimeType as string;
+    const durationSeconds = message.durationSeconds as number;
+
     activeRecordingTabId = null;
     currentMeeting = null;
     setActiveSession(null);
@@ -235,13 +233,13 @@ chrome.runtime.onMessage.addListener((message: any, sender, sendResponse) => {
     processFinalRecording(meetingId, audioBase64, mimeType, durationSeconds)
       .then(() => console.log('✅ Meeting processing & transcription finished!'))
       .catch(err => console.error('❌ Error processing recording:', err));
-    
+
     sendResponse({ received: true });
     return true;
   }
 });
 
-// 7. Transcription & Storage Pipeline
+// ── Transcription & Storage Pipeline ──
 async function processFinalRecording(
   meetingId: string,
   audioBase64: string,
@@ -281,8 +279,6 @@ async function processFinalRecording(
     meeting.transcript = transcript;
     meeting.status = 'completed';
     await upsertMeeting(meeting);
-
-    // Sync audio and JSON transcript to local records/ directory
     await syncMeetingToLocalRepo(meeting, audioBase64, mimeType);
   } catch (err) {
     const error = err instanceof Error ? err : new Error(String(err));

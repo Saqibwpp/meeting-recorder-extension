@@ -1,56 +1,33 @@
 import { ExtensionMessage } from '../types';
 
 let promptContainer: HTMLDivElement | null = null;
-let hasHandledMeetingInTab = false;
+let userDismissedPrompt = false;
 
-// 1. Listen for background trigger
+// Listen for background trigger (meeting platform detected)
 chrome.runtime.onMessage.addListener((message: ExtensionMessage) => {
   if (message.type === 'MEETING_DETECTED') {
-    if (!hasHandledMeetingInTab) {
-      showMeetingPrompt(message.payload.title, message.payload.platform);
-    }
+    maybeShowPrompt(message.payload.title);
   }
 });
 
-// 2. Listen for in-page microphone detector event from MAIN world
-window.addEventListener('AI_NOTETAKER_MIC_DETECTED', (event: any) => {
-  if (!hasHandledMeetingInTab) {
-    const title = event.detail?.title || document.title;
-    showMeetingPrompt(title, 'browser-tab');
-  }
-});
+async function maybeShowPrompt(title: string) {
+  // Don't show if user already dismissed in this page session
+  if (userDismissedPrompt) return;
+  // Don't show if already visible
+  if (promptContainer) return;
 
-// Also fallback hook in isolated world just in case
-try {
-  const originalGetUserMedia = navigator.mediaDevices?.getUserMedia?.bind(navigator.mediaDevices);
-  if (originalGetUserMedia) {
-    navigator.mediaDevices.getUserMedia = async function (constraints) {
-      if (constraints && typeof constraints === 'object' && constraints.audio) {
-        if (!hasHandledMeetingInTab) {
-          showMeetingPrompt(document.title, 'browser-tab');
-        }
-      }
-      return originalGetUserMedia(constraints);
-    };
-  }
-} catch {
-  // Ignore in restricted frames
-}
-
-async function showMeetingPrompt(title: string, platform: string) {
-  if (promptContainer || hasHandledMeetingInTab) return;
-
-  // Check if extension is already recording
+  // Don't show if already recording
   try {
     const status = await chrome.runtime.sendMessage({ type: 'GET_RECORDING_STATUS' });
-    if (status?.isRecording) {
-      hasHandledMeetingInTab = true;
-      return;
-    }
+    if (status?.isRecording) return;
   } catch {
-    // Service worker not ready
+    // Service worker not ready yet
   }
 
+  showMeetingPrompt(title);
+}
+
+function showMeetingPrompt(title: string) {
   promptContainer = document.createElement('div');
   promptContainer.id = 'ai-meeting-recorder-prompt';
   promptContainer.style.cssText = `
@@ -73,7 +50,6 @@ async function showMeetingPrompt(title: string, platform: string) {
     animation: aiSlideIn 0.3s cubic-bezier(0.16, 1, 0.3, 1);
   `;
 
-  // Inject animation styles if not already present
   if (!document.getElementById('ai-notetaker-styles')) {
     const style = document.createElement('style');
     style.id = 'ai-notetaker-styles';
@@ -114,12 +90,12 @@ async function showMeetingPrompt(title: string, platform: string) {
   document.body.appendChild(promptContainer);
 
   document.getElementById('ai-btn-dismiss')?.addEventListener('click', () => {
-    hasHandledMeetingInTab = true;
+    userDismissedPrompt = true;
     removePrompt();
   });
 
   document.getElementById('ai-btn-record')?.addEventListener('click', () => {
-    hasHandledMeetingInTab = true;
+    userDismissedPrompt = true;
     chrome.runtime.sendMessage({ type: 'START_RECORDING' });
     if (promptContainer) {
       promptContainer.innerHTML = `
@@ -142,11 +118,12 @@ function removePrompt() {
 }
 
 function escapeHtml(str: string): string {
-  return str.replace(/[&<>'"]/g, tag => ({
+  const map: Record<string, string> = {
     '&': '&amp;',
     '<': '&lt;',
     '>': '&gt;',
     "'": '&#39;',
     '"': '&quot;'
-  }[tag] || tag));
+  };
+  return str.replace(/[&<>'"]/g, tag => map[tag] || tag);
 }

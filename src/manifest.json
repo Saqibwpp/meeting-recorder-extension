@@ -45,21 +45,6 @@
         "http://localhost:*/*"
       ],
       "js": [
-        "inpage-detector.js"
-      ],
-      "world": "MAIN",
-      "run_at": "document_start"
-    },
-    {
-      "matches": [
-        "https://meet.google.com/*",
-        "https://teams.microsoft.com/*",
-        "https://teams.live.com/*",
-        "https://*.zoom.us/*",
-        "https://app.slack.com/*",
-        "http://localhost:*/*"
-      ],
-      "js": [
         "content.js"
       ],
       "run_at": "document_idle"

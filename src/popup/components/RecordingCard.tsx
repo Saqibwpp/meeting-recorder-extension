@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Mic, Square, Radio, AlertCircle, Sparkles, Volume2, ShieldAlert } from 'lucide-react';
+import { Mic, Square, Radio, AlertCircle, Sparkles, Volume2 } from 'lucide-react';
 import { useRecordingStatusQuery, useStartRecordingMutation, useStopRecordingMutation } from '../../hooks/useMeetings';
 import { useSettingsQuery } from '../../hooks/useSettings';
 
@@ -14,7 +14,6 @@ export const RecordingCard: React.FC = () => {
   const duration = currentMeeting?.durationSeconds ?? 0;
 
   const [activeTabTitle, setActiveTabTitle] = useState<string>('Detecting call...');
-  const [micPermissionGranted, setMicPermissionGranted] = useState<boolean>(true);
 
   useEffect(() => {
     chrome.tabs.query({ active: true, currentWindow: true }, (tabs) => {
@@ -22,21 +21,7 @@ export const RecordingCard: React.FC = () => {
         setActiveTabTitle(tabs[0].title);
       }
     });
-
-    // Check mic permission state on mount
-    navigator.permissions?.query?.({ name: 'microphone' as PermissionName })
-      .then((perm) => {
-        setMicPermissionGranted(perm.state === 'granted');
-        perm.onchange = () => setMicPermissionGranted(perm.state === 'granted');
-      })
-      .catch(() => {
-        // Fallback: test if permission was granted
-      });
   }, []);
-
-  const openPermissionTab = () => {
-    chrome.tabs.create({ url: chrome.runtime.getURL('src/popup/permission.html') });
-  };
 
   const formatTime = (totalSeconds: number) => {
     const mins = Math.floor(totalSeconds / 60);
@@ -44,15 +29,10 @@ export const RecordingCard: React.FC = () => {
     return `${String(mins).padStart(2, '0')}:${String(secs).padStart(2, '0')}`;
   };
 
-  const handleToggleRecord = async () => {
+  const handleToggleRecord = () => {
     if (isRecording) {
       stopMutation.mutate();
     } else {
-      // If mic permission is not yet granted, open the dedicated permission tab first
-      if (!micPermissionGranted) {
-        openPermissionTab();
-        return;
-      }
       startMutation.mutate(undefined);
     }
   };
@@ -66,22 +46,6 @@ export const RecordingCard: React.FC = () => {
         <div className="flex items-center gap-2.5 px-3.5 py-2.5 text-xs text-amber-300 bg-amber-950/40 border border-amber-800/50 rounded-xl">
           <AlertCircle className="w-4 h-4 shrink-0 text-amber-400" />
           <span>No Gemini API key set. Go to Settings to enable AI transcription.</span>
-        </div>
-      )}
-
-      {/* Mic Permission Helper Banner */}
-      {!micPermissionGranted && !isRecording && (
-        <div className="flex items-center justify-between px-3.5 py-2.5 text-xs text-rose-300 bg-rose-950/40 border border-rose-800/50 rounded-xl">
-          <div className="flex items-center gap-2">
-            <ShieldAlert className="w-4 h-4 text-rose-400 shrink-0" />
-            <span>Mic access needed for dual-stream audio.</span>
-          </div>
-          <button
-            onClick={openPermissionTab}
-            className="px-3 py-1 bg-rose-600 hover:bg-rose-500 text-white rounded-lg text-[11px] font-semibold transition-colors cursor-pointer shadow"
-          >
-            Allow Mic
-          </button>
         </div>
       )}
 
