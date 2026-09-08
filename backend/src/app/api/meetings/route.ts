@@ -1,6 +1,29 @@
 import { NextResponse } from 'next/server';
 import { db, auth, storageBucket } from '@/lib/firebase-admin';
 
+// Dynamically resolve CORS origin — chrome-extension://* can't use wildcards
+function getCorsHeaders(request: Request): Record<string, string> {
+  const origin = request.headers.get('origin') || '';
+  const isAllowed =
+    origin.startsWith('chrome-extension://') ||
+    origin.startsWith('http://localhost') ||
+    origin === 'https://meeting-recorder-extension.vercel.app';
+
+  return {
+    'Access-Control-Allow-Origin': isAllowed ? origin : '',
+    'Access-Control-Allow-Methods': 'GET, POST, OPTIONS',
+    'Access-Control-Allow-Headers': 'Content-Type, Authorization',
+  };
+}
+
+// Handle OPTIONS preflight request
+export async function OPTIONS(request: Request) {
+  return new NextResponse(null, {
+    status: 204,
+    headers: getCorsHeaders(request),
+  });
+}
+
 // Helper to verify the user's token from the Authorization header
 async function verifyAuth(request: Request) {
   const authHeader = request.headers.get('authorization');
@@ -18,6 +41,7 @@ async function verifyAuth(request: Request) {
 }
 
 export async function GET(request: Request) {
+  const corsHeaders = getCorsHeaders(request);
   try {
     const uid = await verifyAuth(request);
 
@@ -33,14 +57,15 @@ export async function GET(request: Request) {
       ...doc.data(),
     }));
 
-    return NextResponse.json({ meetings });
+    return NextResponse.json({ meetings }, { headers: corsHeaders });
   } catch (error) {
     const err = error as Error;
-    return NextResponse.json({ error: err.message }, { status: 401 });
+    return NextResponse.json({ error: err.message }, { status: 401, headers: corsHeaders });
   }
 }
 
 export async function POST(request: Request) {
+  const corsHeaders = getCorsHeaders(request);
   try {
     const uid = await verifyAuth(request);
     const body = await request.json();
@@ -82,9 +107,12 @@ export async function POST(request: Request) {
 
     const docRef = await db.collection('meetings').add(meetingData);
 
-    return NextResponse.json({ id: docRef.id, ...meetingData }, { status: 201 });
+    return NextResponse.json({ id: docRef.id, ...meetingData }, { status: 201, headers: corsHeaders });
   } catch (error) {
     const err = error as Error;
-    return NextResponse.json({ error: err.message }, { status: err.message === 'Unauthorized' ? 401 : 400 });
+    return NextResponse.json(
+      { error: err.message },
+      { status: err.message === 'Unauthorized' ? 401 : 400, headers: corsHeaders }
+    );
   }
 }
