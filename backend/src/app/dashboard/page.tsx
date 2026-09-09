@@ -196,14 +196,11 @@ export default function DashboardPage() {
           command: "npx",
           args: [
             "-y",
-            "mcp-handler",
+            "mcp-remote",
             mcpEndpointUrl,
             "--header",
-            "Authorization=Bearer ${AUTH_HEADER}"
-          ],
-          env: {
-            AUTH_HEADER: activeKey
-          }
+            `Authorization: Bearer ${activeKey}`
+          ]
         }
       }
     }, null, 2),

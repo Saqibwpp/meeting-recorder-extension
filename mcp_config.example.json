@@ -7,11 +7,8 @@
         "mcp-remote",
         "https://meeting-recorder-extension.vercel.app/api/mcp",
         "--header",
-        "Authorization:${AUTH_HEADER}"
-      ],
-      "env": {
-        "AUTH_HEADER": "Bearer YOUR_EMBRACE_API_KEY"
-      }
+        "Authorization: Bearer YOUR_EMBRACE_API_KEY"
+      ]
     }
   }
 }
