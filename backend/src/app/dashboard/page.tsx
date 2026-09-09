@@ -1,13 +1,13 @@
 'use client';
 
-import { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import Link from 'next/link';
-import {
-  GoogleAuthProvider,
-  signInWithPopup,
-  signOut,
-  onAuthStateChanged,
-  User
+import { 
+  signInWithEmailAndPassword,
+  createUserWithEmailAndPassword,
+  signOut, 
+  onAuthStateChanged, 
+  User 
 } from 'firebase/auth';
 import { getClientAuth } from '@/lib/firebase-client';
 
@@ -39,6 +39,12 @@ export default function DashboardPage() {
   const [isGeneratingKey, setIsGeneratingKey] = useState(false);
   const [copiedKey, setCopiedKey] = useState<string | null>(null);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
+
+  // Email / Password Form State
+  const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
+  const [isSignUp, setIsSignUp] = useState(false);
+  const [isAuthSubmitting, setIsAuthSubmitting] = useState(false);
 
   const backendUrl = typeof window !== 'undefined' ? window.location.origin : 'https://meeting-recorder-extension.vercel.app';
   const mcpEndpointUrl = `${backendUrl}/api/mcp`;
@@ -84,18 +90,32 @@ export default function DashboardPage() {
     return () => unsubscribe();
   }, [loadUserData]);
 
-  const handleGoogleSignIn = async () => {
+  const handleEmailAuth = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!email.trim() || !password.trim()) {
+      setErrorMsg('Please enter both email and password.');
+      return;
+    }
+
+    const auth = getClientAuth();
+    if (!auth) {
+      setErrorMsg('Firebase Auth is not initialized. Please check your environment variables.');
+      return;
+    }
+
+    setErrorMsg(null);
+    setIsAuthSubmitting(true);
     try {
-      setErrorMsg(null);
-      const auth = getClientAuth();
-      if (!auth) {
-        throw new Error('Firebase Auth is not initialized. Please verify your environment variables.');
+      if (isSignUp) {
+        await createUserWithEmailAndPassword(auth, email.trim(), password);
+      } else {
+        await signInWithEmailAndPassword(auth, email.trim(), password);
       }
-      const provider = new GoogleAuthProvider();
-      await signInWithPopup(auth, provider);
     } catch (err) {
       const error = err as Error;
-      setErrorMsg(error.message || 'Sign in failed');
+      setErrorMsg(error.message || 'Authentication failed');
+    } finally {
+      setIsAuthSubmitting(false);
     }
   };
 
@@ -220,14 +240,7 @@ export default function DashboardPage() {
                   Sign Out
                 </button>
               </div>
-            ) : (
-              <button
-                onClick={handleGoogleSignIn}
-                className="text-xs font-medium px-4 py-2 rounded bg-[#2d2d2d] hover:bg-[#1a1a1a] text-white transition-colors"
-              >
-                Sign in with Google
-              </button>
-            )}
+            ) : null}
           </div>
         </div>
       </header>
@@ -240,22 +253,62 @@ export default function DashboardPage() {
           </div>
         )}
 
-        {/* Not Logged In Prompt */}
+        {/* Not Logged In Auth Form */}
         {!user && !loading && (
-          <div className="bg-white border border-[#e5e3d9] rounded-xl p-10 text-center max-w-lg mx-auto shadow-sm my-12">
-            <div className="w-12 h-12 rounded-full bg-[#f0ede4] flex items-center justify-center mx-auto mb-4 text-xl">
+          <div className="bg-white border border-[#e5e3d9] rounded-xl p-8 sm:p-10 max-w-md mx-auto shadow-sm my-8">
+            <div className="w-10 h-10 rounded-full bg-[#f0ede4] flex items-center justify-center mx-auto mb-4 text-lg">
               🔑
             </div>
-            <h2 className="text-xl font-semibold text-[#1a1a1a] mb-2">Connect Your Meeting Database to AI</h2>
-            <p className="text-sm text-[#666] mb-6 leading-relaxed">
-              Sign in with your team Google account to generate your AI access keys and connect Claude, Cursor, or Antigravity directly to your meeting transcripts.
+            <h2 className="text-xl font-semibold text-[#1a1a1a] text-center mb-1">
+              {isSignUp ? 'Create your Embrace AI Account' : 'Sign in to Embrace AI'}
+            </h2>
+            <p className="text-xs text-[#666] text-center mb-6">
+              Use the same account you use in your Chrome Extension.
             </p>
-            <button
-              onClick={handleGoogleSignIn}
-              className="py-2.5 px-6 rounded-md bg-[#2d2d2d] hover:bg-[#1a1a1a] text-white text-sm font-medium transition-colors shadow-sm"
-            >
-              Sign in with Google
-            </button>
+
+            {/* Email / Password Form */}
+            <form onSubmit={handleEmailAuth} className="space-y-4">
+              <div>
+                <label className="block text-xs font-medium text-[#555] mb-1">Email Address</label>
+                <input
+                  type="email"
+                  value={email}
+                  onChange={(e) => setEmail(e.target.value)}
+                  placeholder="name@company.com"
+                  required
+                  className="w-full px-3 py-2 text-xs rounded-md border border-[#e5e3d9] focus:outline-none focus:border-[#2d2d2d] bg-[#fdfcf9]"
+                />
+              </div>
+
+              <div>
+                <label className="block text-xs font-medium text-[#555] mb-1">Password</label>
+                <input
+                  type="password"
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
+                  placeholder="••••••••"
+                  required
+                  className="w-full px-3 py-2 text-xs rounded-md border border-[#e5e3d9] focus:outline-none focus:border-[#2d2d2d] bg-[#fdfcf9]"
+                />
+              </div>
+
+              <button
+                type="submit"
+                disabled={isAuthSubmitting}
+                className="w-full py-2.5 px-4 rounded-md bg-[#2d2d2d] hover:bg-[#1a1a1a] text-white text-xs font-medium transition-colors disabled:opacity-50"
+              >
+                {isAuthSubmitting ? 'Authenticating...' : isSignUp ? 'Create Account' : 'Sign In with Email'}
+              </button>
+            </form>
+
+            {/* Toggle Sign In / Sign Up */}
+            <div className="text-center mt-4 text-xs text-[#666]">
+              {isSignUp ? (
+                <>Already have an account? <button type="button" onClick={() => setIsSignUp(false)} className="text-[#1a1a1a] font-medium underline">Sign in</button></>
+              ) : (
+                <>Don&apos;t have an account? <button type="button" onClick={() => setIsSignUp(true)} className="text-[#1a1a1a] font-medium underline">Sign up</button></>
+              )}
+            </div>
           </div>
         )}
 
@@ -329,8 +382,9 @@ export default function DashboardPage() {
                       <button
                         key={tab}
                         onClick={() => setActiveTab(tab)}
-                        className={`px-3 py-1 rounded-md capitalize text-xs transition-all ${activeTab === tab ? 'bg-white text-[#1a1a1a] font-medium shadow-sm' : 'text-[#666] hover:text-[#1a1a1a]'
-                          }`}
+                        className={`px-3 py-1 rounded-md capitalize text-xs transition-all ${
+                          activeTab === tab ? 'bg-white text-[#1a1a1a] font-medium shadow-sm' : 'text-[#666] hover:text-[#1a1a1a]'
+                        }`}
                       >
                         {tab === 'web' ? 'Claude / Web' : tab}
                       </button>
