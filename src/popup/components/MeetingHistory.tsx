@@ -1,10 +1,11 @@
 import React, { useState } from 'react';
-import { FileText, Download, CheckCircle2, Clock, AlertTriangle, ChevronRight, X, Sparkles, User, Users } from 'lucide-react';
-import { useMeetingsQuery } from '../../hooks/useMeetings';
+import { Download, Clock, ChevronRight, X, Trash2 } from 'lucide-react';
+import { useMeetingsQuery, useDeleteMeetingMutation } from '../../hooks/useMeetings';
 import { Meeting, TranscriptData } from '../../types';
 
 export const MeetingHistory: React.FC = () => {
   const { data: meetings = [], isLoading } = useMeetingsQuery();
+  const deleteMutation = useDeleteMeetingMutation();
   const [selectedMeeting, setSelectedMeeting] = useState<Meeting | null>(null);
 
   const formatDuration = (sec: number, startTime?: number) => {
@@ -25,6 +26,19 @@ export const MeetingHistory: React.FC = () => {
     a.download = `${title.replace(/[^a-zA-Z0-9_-]/g, '_')}_transcript.json`;
     a.click();
     URL.revokeObjectURL(url);
+  };
+
+  const handleDeleteMeeting = (meetingId: string, title: string) => {
+    if (window.confirm(`Are you sure you want to delete "${title}"?`)) {
+      deleteMutation.mutate(meetingId, {
+        onSuccess: () => {
+          setSelectedMeeting(null);
+        },
+        onError: (err) => {
+          alert(`Failed to delete meeting: ${err.message}`);
+        }
+      });
+    }
   };
 
   if (isLoading) {
@@ -99,7 +113,7 @@ export const MeetingHistory: React.FC = () => {
             {/* Header */}
             <div className="flex items-center justify-between p-4 border-b border-[#e5e3d9] bg-white">
               <div>
-                <h3 className="text-sm text-[#1a1a1a] truncate max-w-[260px]">{selectedMeeting.title}</h3>
+                <h3 className="text-sm text-[#1a1a1a] truncate max-w-[220px]">{selectedMeeting.title}</h3>
                 <p className="text-[11px] text-[#888] mt-0.5">
                   {new Date(selectedMeeting.startTime).toLocaleString()} • {formatDuration(selectedMeeting.durationSeconds)}
                 </p>
@@ -115,6 +129,14 @@ export const MeetingHistory: React.FC = () => {
                   </button>
                 )}
                 <button
+                  onClick={() => handleDeleteMeeting(selectedMeeting.id, selectedMeeting.title)}
+                  disabled={deleteMutation.isPending}
+                  className="p-1.5 hover:bg-[#fcf5f3] hover:text-[#d97757] rounded transition-colors"
+                  title="Delete Meeting"
+                >
+                  <Trash2 className="w-4 h-4" />
+                </button>
+                <button
                   onClick={() => setSelectedMeeting(null)}
                   className="p-1.5 hover:bg-[#f2f0e9] rounded transition-colors"
                 >
@@ -126,12 +148,12 @@ export const MeetingHistory: React.FC = () => {
             {/* Content */}
             <div className="flex-1 overflow-y-auto p-5 space-y-6 text-[13px] leading-relaxed">
               {/* Audio Playback */}
-              {(selectedMeeting as any).audioUrl && (
+              {selectedMeeting.audioUrl && (
                 <div className="mb-4">
                   <div className="text-[10px] text-[#888] uppercase tracking-widest mb-2 border-b border-[#e5e3d9] pb-1">Audio Recording</div>
-                  <audio 
-                    controls 
-                    src={(selectedMeeting as any).audioUrl} 
+                  <audio
+                    controls
+                    src={selectedMeeting.audioUrl}
                     className="w-full h-10 mt-2"
                   />
                 </div>

@@ -30,6 +30,7 @@ export interface Meeting {
   durationSeconds: number;
   status: 'recording' | 'processing' | 'completed' | 'error';
   transcript?: TranscriptData;
+  audioUrl?: string;
   audioBlobUrl?: string;
   error?: string;
 }

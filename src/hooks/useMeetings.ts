@@ -1,6 +1,5 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { Meeting } from '../types';
-import { getStoredMeetings } from '../services/storage';
 import axios from 'axios';
 
 export const MEETINGS_QUERY_KEY = ['meetings'];
@@ -41,37 +40,20 @@ export function useMeetingsQuery() {
   return useQuery<Meeting[], Error>({
     queryKey: MEETINGS_QUERY_KEY,
     queryFn: async () => {
-      const [user, localMeetings] = await Promise.all([
-        waitForAuthUser(),
-        getStoredMeetings()
-      ]);
-
-      const processingMeetings = localMeetings.filter(m => m.status === 'processing' || m.status === 'recording');
-
-      // If we're not logged in, just show local storage
+      const user = await waitForAuthUser();
       if (!user) {
-        return localMeetings;
+        return [];
       }
 
-      try {
-        const token = await user.getIdToken();
-        const apiUrl = import.meta.env.VITE_API_BASE_URL || 'http://localhost:3000';
-        const response = await axios.get(`${apiUrl}/api/meetings`, {
-          headers: {
-            'Authorization': `Bearer ${token}`
-          }
-        });
-        
-        const remoteMeetings: Meeting[] = response.data.meetings || [];
-        const processingIds = new Set(processingMeetings.map(m => m.id));
-        const filteredRemote = remoteMeetings.filter(m => !processingIds.has(m.id));
-
-        // Show active processing meetings at the top, followed by backend meetings
-        return [...processingMeetings, ...filteredRemote];
-      } catch (err) {
-        console.warn('Failed to fetch remote meetings, falling back to local list:', err);
-        return localMeetings;
-      }
+      const token = await user.getIdToken();
+      const apiUrl = import.meta.env.VITE_API_BASE_URL || 'http://localhost:3000';
+      const response = await axios.get(`${apiUrl}/api/meetings`, {
+        headers: {
+          'Authorization': `Bearer ${token}`
+        }
+      });
+      
+      return (response.data.meetings || []) as Meeting[];
     },
     refetchInterval: 3000 // auto-refresh meeting history
   });
@@ -140,6 +122,29 @@ export function useStopRecordingMutation() {
     onSuccess: () => {
       // Invalidation handled exclusively within custom hook
       queryClient.invalidateQueries({ queryKey: RECORDING_STATUS_KEY });
+      queryClient.invalidateQueries({ queryKey: MEETINGS_QUERY_KEY });
+    }
+  });
+}
+
+export function useDeleteMeetingMutation() {
+  const queryClient = useQueryClient();
+
+  return useMutation<{ success: boolean }, Error, string>({
+    mutationFn: async (meetingId: string) => {
+      const user = auth.currentUser;
+      if (!user) throw new Error('User not authenticated');
+      const token = await user.getIdToken();
+      const apiUrl = import.meta.env.VITE_API_BASE_URL || 'http://localhost:3000';
+
+      const response = await axios.delete(`${apiUrl}/api/meetings?id=${meetingId}`, {
+        headers: {
+          'Authorization': `Bearer ${token}`
+        }
+      });
+      return response.data;
+    },
+    onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: MEETINGS_QUERY_KEY });
     }
   });

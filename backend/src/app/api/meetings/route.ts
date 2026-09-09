@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server';
-import { getDb, getAdminAuth, getStorageBucket } from '@/lib/firebase-admin';
+import { getDb, getAdminAuth } from '@/lib/firebase-admin';
+import { uploadAudioToCloudinary } from '@/lib/cloudinary';
 
 // Dynamically resolve CORS origin — chrome-extension://* can't use wildcards
 function getCorsHeaders(request: Request): Record<string, string> {
@@ -11,7 +12,7 @@ function getCorsHeaders(request: Request): Record<string, string> {
 
   return {
     'Access-Control-Allow-Origin': isAllowed ? origin : '',
-    'Access-Control-Allow-Methods': 'GET, POST, OPTIONS',
+    'Access-Control-Allow-Methods': 'GET, POST, DELETE, OPTIONS',
     'Access-Control-Allow-Headers': 'Content-Type, Authorization',
   };
 }
@@ -53,7 +54,6 @@ export async function GET(request: Request) {
 
   try {
     // Fetch meetings for this user
-    // We sort in JS to avoid needing a Firestore composite index for (userId + startTime)
     const meetingsSnapshot = await getDb()
       .collection('meetings')
       .where('userId', '==', uid)
@@ -85,33 +85,17 @@ export async function POST(request: Request) {
 
     let audioUrl = '';
 
-    // Upload audio to Firebase Storage server-side (no CORS issues!)
+    // Upload audio to Cloudinary (No credit card required!)
     if (audioBase64 && meetingId) {
       try {
-        const audioBuffer = Buffer.from(audioBase64, 'base64');
-        const filePath = `users/${uid}/meetings/${meetingId}.webm`;
-        const file = getStorageBucket().file(filePath);
-
-        await file.save(audioBuffer, {
-          metadata: {
-            contentType: mimeType || 'audio/webm',
-          },
-        });
-
-        // Generate a long-lived signed URL instead of modifying bucket public access policies
-        const [signedUrl] = await file.getSignedUrl({
-          action: 'read',
-          expires: '01-01-2100', // Effectively never expires for our use case
-        });
-        
-        audioUrl = signedUrl;
-        console.log('✅ Audio uploaded to Firebase Storage (Signed URL generated)');
-      } catch (storageErr) {
-        console.error('⚠️ Audio upload to Storage failed (saving transcript only):', storageErr);
+        audioUrl = await uploadAudioToCloudinary(audioBase64, mimeType, meetingId);
+        console.log('✅ Audio uploaded to Cloudinary:', audioUrl);
+      } catch (cloudinaryErr) {
+        console.error('⚠️ Audio upload to Cloudinary failed (saving transcript only):', cloudinaryErr);
       }
     }
 
-    // Save to Firestore (without the raw base64 - just the URL)
+    // Save to Firestore (without the raw base64 - just the Cloudinary URL)
     const meetingData = {
       ...rest,
       id: meetingId,
@@ -128,6 +112,41 @@ export async function POST(request: Request) {
     return NextResponse.json(
       { error: err.message },
       { status: err.message === 'Unauthorized' ? 401 : 400, headers: corsHeaders }
+    );
+  }
+}
+
+export async function DELETE(request: Request) {
+  const corsHeaders = getCorsHeaders(request);
+  try {
+    const uid = await verifyAuth(request);
+    const { searchParams } = new URL(request.url);
+    const meetingId = searchParams.get('id');
+
+    if (!meetingId) {
+      return NextResponse.json({ error: 'Missing meeting id' }, { status: 400, headers: corsHeaders });
+    }
+
+    const snapshot = await getDb()
+      .collection('meetings')
+      .where('id', '==', meetingId)
+      .where('userId', '==', uid)
+      .get();
+
+    if (snapshot.empty) {
+      return NextResponse.json({ error: 'Meeting not found or unauthorized' }, { status: 404, headers: corsHeaders });
+    }
+
+    const batch = getDb().batch();
+    snapshot.docs.forEach((doc) => batch.delete(doc.ref));
+    await batch.commit();
+
+    return NextResponse.json({ success: true, deletedId: meetingId }, { headers: corsHeaders });
+  } catch (error) {
+    const err = error as Error;
+    return NextResponse.json(
+      { error: err.message },
+      { status: err.message === 'Unauthorized' ? 401 : 500, headers: corsHeaders }
     );
   }
 }

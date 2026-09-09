@@ -2,9 +2,6 @@ import { Meeting, MeetingPlatform } from '../types';
 import axios from 'axios';
 import {
   getStoredSettings,
-  getStoredMeetings,
-  upsertMeeting,
-  deleteMeeting,
   getActiveSession,
   setActiveSession
 } from '../services/storage';
@@ -157,7 +154,6 @@ async function handleStartRecording(targetTabId?: number): Promise<void> {
       title: currentMeeting.title,
       platform
     });
-    await upsertMeeting(currentMeeting);
 
     chrome.action.setBadgeText({ text: 'REC' });
     chrome.action.setBadgeBackgroundColor({ color: '#EF4444' });
@@ -192,11 +188,8 @@ async function handleStopRecording(): Promise<void> {
     clearInterval(recordingTimer);
     recordingTimer = null;
   }
-  if (currentMeeting) {
-    currentMeeting.status = 'processing';
-    await upsertMeeting(currentMeeting);
-  }
   activeRecordingTabId = null;
+  currentMeeting = null;
   await setActiveSession(null);
   chrome.action.setBadgeText({ text: '' });
 
@@ -286,77 +279,67 @@ async function processFinalRecording(
   authToken?: string,
   audioUrl?: string
 ): Promise<void> {
-  const meetings = await getStoredMeetings();
-  const meeting = meetings.find(m => m.id === meetingId) || currentMeeting;
-  if (!meeting) return;
-
-  meeting.status = 'processing';
-  meeting.durationSeconds = durationSeconds || meeting.durationSeconds;
-  await upsertMeeting(meeting);
-
   const settings = await getStoredSettings();
 
+  const meeting: Meeting = {
+    id: meetingId,
+    title: 'Meeting Recording',
+    url: '',
+    platform: 'browser-tab',
+    startTime: Date.now() - (durationSeconds || 0) * 1000,
+    durationSeconds: durationSeconds || 0,
+    status: 'completed',
+    audioUrl
+  };
+
   if (!settings.geminiApiKey) {
-    meeting.status = 'completed';
     meeting.error = 'No Gemini API Key provided. Audio saved, transcription skipped.';
-    await upsertMeeting(meeting);
     console.warn('Meeting skipped: No Gemini API Key provided.');
-    return;
+  } else {
+    try {
+      const transcript = await transcribeWithGemini({
+        audioBase64,
+        mimeType,
+        apiKey: settings.geminiApiKey,
+        meetingId: meeting.id,
+        title: meeting.title,
+        durationSeconds: meeting.durationSeconds,
+        primaryModel: settings.primaryModel,
+        fallbackModels: settings.fallbackModels
+      });
+
+      meeting.transcript = transcript;
+    } catch (err) {
+      const error = err instanceof Error ? err : new Error(String(err));
+      console.error('Transcription failed:', error);
+      meeting.status = 'error';
+      meeting.error = error.message;
+    }
   }
 
-  try {
-    const transcript = await transcribeWithGemini({
-      audioBase64,
-      mimeType,
-      apiKey: settings.geminiApiKey,
-      meetingId: meeting.id,
-      title: meeting.title,
-      durationSeconds: meeting.durationSeconds,
-      primaryModel: settings.primaryModel,
-      fallbackModels: settings.fallbackModels
-    });
-
-    meeting.transcript = transcript;
-    meeting.status = 'completed';
-    if (audioUrl) {
-      (meeting as any).audioUrl = audioUrl;
-    }
-
-    // Upload to Next.js API securely (with audioBase64 and mimeType for backend Storage upload)
-    if (authToken) {
-      try {
-        const apiUrl = import.meta.env.VITE_API_BASE_URL || 'http://localhost:3000';
-        await axios.post(
-          `${apiUrl}/api/meetings`,
-          {
-            ...meeting,
-            audioBase64,
-            mimeType
-          },
-          {
-            headers: {
-              'Content-Type': 'application/json',
-              'Authorization': `Bearer ${authToken}`
-            }
+  // Upload to Next.js API securely (with audioBase64 and mimeType for backend Cloudinary upload)
+  if (authToken) {
+    try {
+      const apiUrl = import.meta.env.VITE_API_BASE_URL || 'http://localhost:3000';
+      await axios.post(
+        `${apiUrl}/api/meetings`,
+        {
+          ...meeting,
+          audioBase64,
+          mimeType
+        },
+        {
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${authToken}`
           }
-        );
-        console.log('✅ Successfully synced meeting & audio to backend via Next.js API');
-        
-        // Delete from Chrome Local Storage to prevent duplication
-        await deleteMeeting(meeting.id);
-      } catch (uploadErr) {
-        console.error('Error syncing meeting to backend:', uploadErr);
-        await upsertMeeting(meeting);
-      }
-    } else {
-      console.warn('⚠️ No Firebase Auth token found. Meeting saved locally.');
-      await upsertMeeting(meeting);
+        }
+      );
+      console.log('✅ Successfully synced meeting & audio to backend via Next.js API');
+    } catch (uploadErr) {
+      console.error('Error syncing meeting to backend:', uploadErr);
     }
-  } catch (err) {
-    const error = err instanceof Error ? err : new Error(String(err));
-    console.error('Transcription failed:', error);
-    meeting.status = 'error';
-    meeting.error = error.message;
-    await upsertMeeting(meeting);
+  } else {
+    console.warn('⚠️ No Firebase Auth token found. Meeting not synced to backend.');
   }
 }
