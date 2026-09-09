@@ -1,5 +1,4 @@
 import React, { useState, useEffect } from 'react';
-import { Mic, Square, Radio, AlertCircle, Sparkles, Volume2 } from 'lucide-react';
 import { useRecordingStatusQuery, useStartRecordingMutation, useStopRecordingMutation } from '../../hooks/useMeetings';
 import { useSettingsQuery } from '../../hooks/useSettings';
 

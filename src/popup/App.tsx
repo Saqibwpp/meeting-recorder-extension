@@ -1,5 +1,4 @@
 import React, { useState, useEffect } from 'react';
-import { Mic, History, Settings, Sparkles } from 'lucide-react';
 import { RecordingCard } from './components/RecordingCard';
 import { MeetingHistory } from './components/MeetingHistory';
 import { SettingsView } from './components/SettingsView';

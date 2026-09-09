@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Key, Sparkles, Check, Server, Eye, EyeOff, ShieldCheck, HelpCircle } from 'lucide-react';
+import { Eye, EyeOff, HelpCircle } from 'lucide-react';
 import { useSettingsQuery, useUpdateSettingsMutation } from '../../hooks/useSettings';
 import { DEFAULT_PRIMARY_MODEL } from '../../services/gemini';
 

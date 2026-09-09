@@ -1,4 +1,4 @@
-import { Meeting, ExtensionSettings } from '../types';
+import { ExtensionSettings } from '../types';
 import { DEFAULT_PRIMARY_MODEL, DEFAULT_FALLBACK_MODELS } from './gemini';
 
 const SETTINGS_KEY = 'ai_meetings_settings';
