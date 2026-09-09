@@ -7,10 +7,14 @@ export const MeetingHistory: React.FC = () => {
   const { data: meetings = [], isLoading } = useMeetingsQuery();
   const [selectedMeeting, setSelectedMeeting] = useState<Meeting | null>(null);
 
-  const formatDuration = (sec: number) => {
-    const m = Math.floor(sec / 60);
-    const s = sec % 60;
-    return `${m}m ${s}s`;
+  const formatDuration = (sec: number, startTime?: number) => {
+    let s = sec;
+    if (s <= 0 && startTime) {
+      s = Math.max(1, Math.floor((Date.now() - startTime) / 1000));
+    }
+    const mins = Math.floor(s / 60);
+    const secs = s % 60;
+    return `${mins}m ${secs}s`;
   };
 
   const handleDownloadTranscript = (transcript: TranscriptData, title: string) => {
@@ -55,14 +59,21 @@ export const MeetingHistory: React.FC = () => {
               <div className="flex items-center gap-2 text-[11px] text-[#888] mt-0.5">
                 <span>{new Date(m.startTime).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</span>
                 <span>•</span>
-                <span>{formatDuration(m.durationSeconds)}</span>
+                <span>{formatDuration(m.durationSeconds, m.startTime)}</span>
               </div>
             </div>
           </div>
 
           <div className="flex items-center gap-2 text-[#888]">
+            {m.status === 'recording' && (
+              <span className="text-[10px] uppercase tracking-widest text-[#d97757] flex items-center gap-1.5 bg-[#fcf5f3] px-2 py-0.5 rounded border border-[#f5dfd7]">
+                <span className="w-1.5 h-1.5 rounded-full bg-[#d97757] animate-pulse" />
+                Recording
+              </span>
+            )}
             {m.status === 'processing' && (
-              <span className="text-[10px] uppercase tracking-widest text-[#d97757]">
+              <span className="text-[10px] uppercase tracking-widest text-[#d97757] flex items-center gap-1.5 bg-[#fcf5f3] px-2 py-0.5 rounded border border-[#f5dfd7]">
+                <span className="w-1.5 h-1.5 rounded-full bg-[#d97757] animate-pulse" />
                 Transcribing
               </span>
             )}

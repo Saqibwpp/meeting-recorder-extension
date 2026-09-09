@@ -192,8 +192,11 @@ async function handleStopRecording(): Promise<void> {
     clearInterval(recordingTimer);
     recordingTimer = null;
   }
+  if (currentMeeting) {
+    currentMeeting.status = 'processing';
+    await upsertMeeting(currentMeeting);
+  }
   activeRecordingTabId = null;
-  currentMeeting = null;
   await setActiveSession(null);
   chrome.action.setBadgeText({ text: '' });
 
@@ -288,7 +291,7 @@ async function processFinalRecording(
   if (!meeting) return;
 
   meeting.status = 'processing';
-  meeting.durationSeconds = durationSeconds;
+  meeting.durationSeconds = durationSeconds || meeting.durationSeconds;
   await upsertMeeting(meeting);
 
   const settings = await getStoredSettings();
@@ -296,8 +299,7 @@ async function processFinalRecording(
   if (!settings.geminiApiKey) {
     meeting.status = 'completed';
     meeting.error = 'No Gemini API Key provided. Audio saved, transcription skipped.';
-    
-    // We no longer sync to local repo, so we just log a warning and return.
+    await upsertMeeting(meeting);
     console.warn('Meeting skipped: No Gemini API Key provided.');
     return;
   }
@@ -309,7 +311,7 @@ async function processFinalRecording(
       apiKey: settings.geminiApiKey,
       meetingId: meeting.id,
       title: meeting.title,
-      durationSeconds,
+      durationSeconds: meeting.durationSeconds,
       primaryModel: settings.primaryModel,
       fallbackModels: settings.fallbackModels
     });
@@ -317,37 +319,44 @@ async function processFinalRecording(
     meeting.transcript = transcript;
     meeting.status = 'completed';
     if (audioUrl) {
-      (meeting as any).audioUrl = audioUrl; // Storing the audio URL natively
+      (meeting as any).audioUrl = audioUrl;
     }
 
-    // 1. Remove Local Extension Storage (fallback) entirely to prevent duplication
-    // We only rely on the backend now.
-
-    // 2. Upload to Next.js API securely
+    // Upload to Next.js API securely (with audioBase64 and mimeType for backend Storage upload)
     if (authToken) {
       try {
         const apiUrl = import.meta.env.VITE_API_BASE_URL || 'http://localhost:3000';
-        await axios.post(`${apiUrl}/api/meetings`, meeting, {
-          headers: {
-            'Content-Type': 'application/json',
-            'Authorization': `Bearer ${authToken}`
+        await axios.post(
+          `${apiUrl}/api/meetings`,
+          {
+            ...meeting,
+            audioBase64,
+            mimeType
+          },
+          {
+            headers: {
+              'Content-Type': 'application/json',
+              'Authorization': `Bearer ${authToken}`
+            }
           }
-        });
-        console.log('✅ Successfully synced meeting to backend via Next.js API');
+        );
+        console.log('✅ Successfully synced meeting & audio to backend via Next.js API');
         
-        // 3. Delete from Chrome Local Storage to prevent infinite bloating
+        // Delete from Chrome Local Storage to prevent duplication
         await deleteMeeting(meeting.id);
       } catch (uploadErr) {
         console.error('Error syncing meeting to backend:', uploadErr);
+        await upsertMeeting(meeting);
       }
     } else {
-      console.warn('⚠️ No Firebase Auth token found. Meeting saved locally but not synced to backend.');
+      console.warn('⚠️ No Firebase Auth token found. Meeting saved locally.');
+      await upsertMeeting(meeting);
     }
   } catch (err) {
     const error = err instanceof Error ? err : new Error(String(err));
     console.error('Transcription failed:', error);
     meeting.status = 'error';
     meeting.error = error.message;
-    // We no longer fallback to local storage
+    await upsertMeeting(meeting);
   }
 }

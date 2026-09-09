@@ -13,33 +13,65 @@ interface RecordingStatusResponse {
 }
 
 import { auth } from '../services/firebase';
+import type { User } from 'firebase/auth';
+
+function waitForAuthUser(): Promise<User | null> {
+  if (auth.currentUser) return Promise.resolve(auth.currentUser);
+  return new Promise((resolve) => {
+    let resolved = false;
+    const unsubscribe = auth.onAuthStateChanged((user) => {
+      if (!resolved) {
+        resolved = true;
+        unsubscribe();
+        resolve(user);
+      }
+    });
+    // Fallback timeout in case auth state takes long
+    setTimeout(() => {
+      if (!resolved) {
+        resolved = true;
+        unsubscribe();
+        resolve(auth.currentUser);
+      }
+    }, 1200);
+  });
+}
 
 export function useMeetingsQuery() {
   return useQuery<Meeting[], Error>({
     queryKey: MEETINGS_QUERY_KEY,
     queryFn: async () => {
-      // If we're not logged in, just fallback to empty array or local storage
-      const user = auth.currentUser;
+      const [user, localMeetings] = await Promise.all([
+        waitForAuthUser(),
+        getStoredMeetings()
+      ]);
+
+      const processingMeetings = localMeetings.filter(m => m.status === 'processing' || m.status === 'recording');
+
+      // If we're not logged in, just show local storage
       if (!user) {
-        return await getStoredMeetings();
+        return localMeetings;
       }
 
-      const token = await user.getIdToken();
-      const apiUrl = import.meta.env.VITE_API_BASE_URL || 'http://localhost:3000';
-      const [response, localMeetings] = await Promise.all([
-        axios.get(`${apiUrl}/api/meetings`, {
+      try {
+        const token = await user.getIdToken();
+        const apiUrl = import.meta.env.VITE_API_BASE_URL || 'http://localhost:3000';
+        const response = await axios.get(`${apiUrl}/api/meetings`, {
           headers: {
             'Authorization': `Bearer ${token}`
           }
-        }),
-        getStoredMeetings()
-      ]);
-      
-      const remoteMeetings = response.data.meetings || [];
-      const processingMeetings = localMeetings.filter(m => m.status === 'processing' || m.status === 'recording');
-      
-      // Show processing meetings at the top, followed by completed remote meetings
-      return [...processingMeetings, ...remoteMeetings];
+        });
+        
+        const remoteMeetings: Meeting[] = response.data.meetings || [];
+        const processingIds = new Set(processingMeetings.map(m => m.id));
+        const filteredRemote = remoteMeetings.filter(m => !processingIds.has(m.id));
+
+        // Show active processing meetings at the top, followed by backend meetings
+        return [...processingMeetings, ...filteredRemote];
+      } catch (err) {
+        console.warn('Failed to fetch remote meetings, falling back to local list:', err);
+        return localMeetings;
+      }
     },
     refetchInterval: 3000 // auto-refresh meeting history
   });
