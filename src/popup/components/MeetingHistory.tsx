@@ -1,12 +1,16 @@
 import React, { useState } from 'react';
 import { Download, Clock, ChevronRight, X, Trash2 } from 'lucide-react';
-import { useMeetingsQuery, useDeleteMeetingMutation } from '../../hooks/useMeetings';
+import { useMeetingsQuery, useDeleteMeetingMutation, useRecordingStatusQuery } from '../../hooks/useMeetings';
 import { Meeting, TranscriptData } from '../../types';
 
 export const MeetingHistory: React.FC = () => {
-  const { data: meetings = [], isLoading, isFetching } = useMeetingsQuery();
+  const { data: meetings = [], isLoading } = useMeetingsQuery();
+  const { data: status } = useRecordingStatusQuery();
   const deleteMutation = useDeleteMeetingMutation();
   const [selectedMeeting, setSelectedMeeting] = useState<Meeting | null>(null);
+
+  const isProcessing = status?.isProcessing;
+  const processingStatus = status?.processingStatus;
 
   const formatDuration = (sec: number, startTime?: number) => {
     let s = sec;
@@ -44,30 +48,29 @@ export const MeetingHistory: React.FC = () => {
   if (isLoading) {
     return (
       <div className="flex flex-col items-center justify-center p-8 text-slate-500 gap-2">
-        <div className="w-5 h-5 border-2 border-slate-600 border-t-emerald-500 rounded-full animate-spin" />
+        <div className="w-5 h-5 border-2 border-[#d97757]/30 border-t-[#d97757] rounded-full animate-spin" />
         <span className="text-xs">Loading meetings...</span>
-      </div>
-    );
-  }
-
-  if (meetings.length === 0) {
-    return (
-      <div className="flex flex-col items-center justify-center py-10 px-4 text-center">
-        <div className="text-[13px] text-[#555] font-medium mb-1">No meetings recorded yet</div>
-        <div className="text-[11px] text-[#888]">Start a recording from the Record tab or join Google Meet / Teams.</div>
       </div>
     );
   }
 
   return (
     <div className="flex flex-col gap-2.5">
-      {isFetching && (
-        <div className="flex items-center justify-between px-3 py-1.5 bg-[#f4f7f5] border border-[#e2eae4] rounded text-[11px] text-[#5b695e] animate-in fade-in duration-150">
-          <span className="flex items-center gap-1.5">
-            <span className="w-1.5 h-1.5 rounded-full bg-[#5b695e] animate-pulse" />
-            Updating meetings...
-          </span>
-          <div className="w-3.5 h-3.5 border-2 border-[#5b695e]/30 border-t-[#5b695e] rounded-full animate-spin" />
+      {/* Real-time processing banner when user just stopped recording */}
+      {isProcessing && (
+        <div className="flex items-center gap-3 p-3.5 bg-[#fdfaf8] border border-[#f5dfd7] rounded text-[12px] animate-in fade-in duration-300">
+          <div className="w-4 h-4 border-2 border-[#d97757]/30 border-t-[#d97757] rounded-full animate-spin flex-shrink-0" />
+          <div className="flex flex-col">
+            <span className="font-medium text-[#1a1a1a]">AI Processing in Progress</span>
+            <span className="text-[11px] text-[#888]">{processingStatus || 'Transcribing dialogue and syncing to cloud...'}</span>
+          </div>
+        </div>
+      )}
+
+      {meetings.length === 0 && !isProcessing && (
+        <div className="flex flex-col items-center justify-center py-10 px-4 text-center">
+          <div className="text-[13px] text-[#555] font-medium mb-1">No meetings recorded yet</div>
+          <div className="text-[11px] text-[#888]">Start a recording from the Record tab or join Google Meet / Teams.</div>
         </div>
       )}
       {meetings.map((m) => (

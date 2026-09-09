@@ -81,21 +81,21 @@ export async function POST(request: Request) {
     const uid = await verifyAuth(request);
     const body = await request.json();
 
-    const { audioBase64, id: meetingId, ...rest } = body;
+    const { audioBase64, audioUrl: passedAudioUrl, id: meetingId, ...rest } = body;
 
-    let audioUrl = '';
+    let audioUrl = passedAudioUrl || '';
 
-    // Upload audio to Cloudinary (No credit card required!)
-    if (audioBase64 && meetingId) {
+    // If audioUrl wasn't already uploaded directly, upload audio to Cloudinary as fallback
+    if (!audioUrl && audioBase64 && meetingId) {
       try {
         audioUrl = await uploadAudioToCloudinary(audioBase64, meetingId);
-        console.log('✅ Audio uploaded to Cloudinary:', audioUrl);
+        console.log('✅ Audio uploaded to Cloudinary (backend fallback):', audioUrl);
       } catch (cloudinaryErr) {
         console.error('⚠️ Audio upload to Cloudinary failed (saving transcript only):', cloudinaryErr);
       }
     }
 
-    // Save to Firestore (without the raw base64 - just the Cloudinary URL)
+    // Save to Firestore (lightweight metadata with the Cloudinary URL)
     const meetingData = {
       ...rest,
       id: meetingId,

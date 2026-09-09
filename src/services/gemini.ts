@@ -20,19 +20,19 @@ export const DEFAULT_FALLBACK_MODELS = [
 ];
 
 const SYSTEM_PROMPT = `You are an expert AI meeting notetaker and transcription engine.
-The attached audio is a 2-channel stereo meeting recording:
-- Channel 1 (Left Channel): Local User (You / Microphone)
-- Channel 2 (Right Channel): Remote Participants (System / Browser Tab from Teams, Google Meet, Zoom, Slack)
+The attached audio is a meeting recording:
+- Local User (Microphone / You)
+- Remote Participants (System audio from Google Meet, Microsoft Teams, Zoom, Slack)
 
-Generate a precise, clean JSON response with:
-1. "summary": A concise executive bullet-point summary of the meeting.
+Perform speaker diarization and generate a precise, clean JSON response with:
+1. "summary": A concise executive summary of the meeting.
 2. "actionItems": An array of clear action items or next steps identified.
 3. "segments": An array of timestamped dialogue segments:
    - "id": incremental integer (1, 2, 3...)
    - "startTime": timestamp string (e.g. "00:04.50")
    - "endTime": timestamp string (e.g. "00:18.00")
-   - "speaker": "Speaker 1 (You)" or "Speaker 2 (Remote)" or person's name if identified
-   - "channel": "left" (for local user) or "right" (for remote participant) or "mixed"
+   - "speaker": "Speaker 1 (You)" for the local user, and distinct labels for remote participants: "Speaker 2", "Speaker 3", "Speaker 4"... or their actual names if introduced or mentioned in the conversation.
+   - "channel": "left" (for local user) or "right" (for remote participants) or "mixed"
    - "text": Exact transcribed speech
 
 Respond ONLY with valid JSON matching this structure. Do not wrap in markdown code blocks.`;

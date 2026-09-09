@@ -2,11 +2,15 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { Meeting } from '../types';
 import axios from 'axios';
 
+import { useEffect } from 'react';
+
 export const MEETINGS_QUERY_KEY = ['meetings'];
 export const RECORDING_STATUS_KEY = ['recording_status'];
 
-interface RecordingStatusResponse {
+export interface RecordingStatusResponse {
   isRecording: boolean;
+  isProcessing?: boolean;
+  processingStatus?: string;
   currentMeeting: Meeting | null;
   activeTabId: number | null;
 }
@@ -37,6 +41,22 @@ function waitForAuthUser(): Promise<User | null> {
 }
 
 export function useMeetingsQuery() {
+  const queryClient = useQueryClient();
+
+  useEffect(() => {
+    const handleRuntimeMessage = (message: any) => {
+      if (message?.type === 'MEETINGS_UPDATED') {
+        queryClient.invalidateQueries({ queryKey: MEETINGS_QUERY_KEY });
+        queryClient.invalidateQueries({ queryKey: RECORDING_STATUS_KEY });
+      }
+    };
+
+    chrome.runtime.onMessage.addListener(handleRuntimeMessage);
+    return () => {
+      chrome.runtime.onMessage.removeListener(handleRuntimeMessage);
+    };
+  }, [queryClient]);
+
   return useQuery<Meeting[], Error>({
     queryKey: MEETINGS_QUERY_KEY,
     queryFn: async () => {
@@ -54,8 +74,8 @@ export function useMeetingsQuery() {
       });
       
       return (response.data.meetings || []) as Meeting[];
-    },
-    refetchInterval: 3000 // auto-refresh meeting history
+    }
+    // No refetchInterval polling — purely event-driven when meetings update or tab mounts!
   });
 }
 
@@ -66,14 +86,14 @@ export function useRecordingStatusQuery() {
       return new Promise((resolve) => {
         chrome.runtime.sendMessage({ type: 'GET_RECORDING_STATUS' }, (response) => {
           if (chrome.runtime.lastError || !response) {
-            resolve({ isRecording: false, currentMeeting: null, activeTabId: null });
+            resolve({ isRecording: false, isProcessing: false, currentMeeting: null, activeTabId: null });
           } else {
             resolve(response as RecordingStatusResponse);
           }
         });
       });
     },
-    refetchInterval: 1000 // live duration & status poll
+    refetchInterval: 1000 // live duration & status poll while popup is open
   });
 }
 

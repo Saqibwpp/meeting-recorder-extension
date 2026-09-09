@@ -38,4 +38,30 @@ export async function uploadAudioToCloudinary(
   });
 }
 
+export function generateUploadSignature(folder: string = 'meeting-recordings', publicId?: string) {
+  const timestamp = Math.round(new Date().getTime() / 1000);
+  const apiSecret = process.env.CLOUDINARY_API_SECRET || '';
+  const apiKey = process.env.CLOUDINARY_API_KEY || '';
+  const cloudName = process.env.CLOUDINARY_CLOUD_NAME || '';
+
+  const paramsToSign: Record<string, string | number> = {
+    folder,
+    timestamp,
+  };
+  if (publicId) {
+    paramsToSign.public_id = publicId;
+  }
+
+  const signature = cloudinary.utils.api_sign_request(paramsToSign, apiSecret);
+
+  return {
+    signature,
+    timestamp,
+    apiKey,
+    cloudName,
+    folder,
+    publicId,
+  };
+}
+
 export default cloudinary;

@@ -12,6 +12,8 @@ let activeRecordingTabId: number | null = null;
 let currentMeeting: Meeting | null = null;
 let recordingTimer: ReturnType<typeof setInterval> | null = null;
 let sessionRestored = false;
+let isProcessing = false;
+let processingStatus = '';
 const notifiedTabs = new Set<number>();
 
 // ── Restore session on service worker startup ──
@@ -169,7 +171,8 @@ async function handleStartRecording(targetTabId?: number): Promise<void> {
       target: 'offscreen',
       type: 'START_OFFSCREEN_RECORDING',
       streamId,
-      meetingId
+      meetingId,
+      startTime: now
     }, (response) => {
       if (chrome.runtime.lastError) {
         console.error("Offscreen communication failed:", chrome.runtime.lastError.message);
@@ -192,6 +195,8 @@ async function handleStopRecording(): Promise<void> {
   currentMeeting = null;
   await setActiveSession(null);
   chrome.action.setBadgeText({ text: '' });
+  isProcessing = true;
+  processingStatus = 'Finalizing audio recording...';
 
   chrome.runtime.sendMessage({
     target: 'offscreen',
@@ -235,6 +240,8 @@ chrome.runtime.onMessage.addListener((message: Record<string, unknown>, sender, 
       }
       sendResponse({
         isRecording: activeRecordingTabId !== null,
+        isProcessing,
+        processingStatus,
         currentMeeting,
         activeTabId: activeRecordingTabId
       });
@@ -242,6 +249,8 @@ chrome.runtime.onMessage.addListener((message: Record<string, unknown>, sender, 
       console.error("Failed to get session:", err);
       sendResponse({
         isRecording: activeRecordingTabId !== null,
+        isProcessing,
+        processingStatus,
         currentMeeting,
         activeTabId: activeRecordingTabId
       });
@@ -260,15 +269,78 @@ chrome.runtime.onMessage.addListener((message: Record<string, unknown>, sender, 
     activeRecordingTabId = null;
     currentMeeting = null;
     setActiveSession(null);
+    isProcessing = true;
+    processingStatus = 'Transcribing with Gemini AI & uploading audio...';
 
     processFinalRecording(meetingId, audioBase64, mimeType, durationSeconds, authToken, audioUrl)
       .then(() => console.log('✅ Meeting processing & transcription finished!'))
-      .catch(err => console.error('❌ Error processing recording:', err));
+      .catch(err => console.error('❌ Error processing recording:', err))
+      .finally(() => {
+        isProcessing = false;
+        processingStatus = '';
+        // Broadcast to all extension views that a new meeting is ready
+        chrome.runtime.sendMessage({ type: 'MEETINGS_UPDATED' }).catch(() => {});
+      });
 
     sendResponse({ received: true });
     return true;
   }
 });
+
+// ── Direct Signed Upload to Cloudinary (Bypasses Vercel 4.5MB Serverless Limit) ──
+async function uploadAudioDirectlyToCloudinary(
+  audioBase64: string,
+  meetingId: string,
+  authToken: string,
+  apiUrl: string
+): Promise<string | undefined> {
+  try {
+    // 1. Request temporary signature from Next.js backend (secret stays protected on backend)
+    const signatureRes = await axios.get(`${apiUrl}/api/upload-signature?meetingId=${meetingId}`, {
+      headers: {
+        Authorization: `Bearer ${authToken}`
+      }
+    });
+
+    const { signature, timestamp, apiKey, cloudName, folder, publicId } = signatureRes.data;
+    if (!signature || !apiKey || !cloudName) {
+      console.warn('⚠️ Invalid signature response from backend for Cloudinary upload.');
+      return undefined;
+    }
+
+    // 2. Convert base64 to Blob
+    const byteCharacters = atob(audioBase64);
+    const byteNumbers = new Array(byteCharacters.length);
+    for (let i = 0; i < byteCharacters.length; i++) {
+      byteNumbers[i] = byteCharacters.charCodeAt(i);
+    }
+    const byteArray = new Uint8Array(byteNumbers);
+    const audioBlob = new Blob([byteArray], { type: 'audio/webm' });
+
+    // 3. Prepare FormData for Cloudinary Direct Upload
+    const formData = new FormData();
+    formData.append('file', audioBlob, `${meetingId}.webm`);
+    formData.append('api_key', apiKey);
+    formData.append('timestamp', String(timestamp));
+    formData.append('signature', signature);
+    formData.append('folder', folder || 'meeting-recordings');
+    if (publicId) {
+      formData.append('public_id', publicId);
+    }
+
+    // 4. Direct upload to Cloudinary API (resource_type: video for audio streaming)
+    const cloudinaryUploadUrl = `https://api.cloudinary.com/v1_1/${cloudName}/video/upload`;
+    const uploadRes = await axios.post(cloudinaryUploadUrl, formData);
+
+    if (uploadRes.data && uploadRes.data.secure_url) {
+      console.log('✅ Direct Cloudinary upload succeeded:', uploadRes.data.secure_url);
+      return uploadRes.data.secure_url;
+    }
+  } catch (directErr) {
+    console.warn('⚠️ Direct Cloudinary upload failed, falling back to backend upload:', directErr);
+  }
+  return undefined;
+}
 
 // ── Transcription & Storage Pipeline ──
 async function processFinalRecording(
@@ -280,6 +352,18 @@ async function processFinalRecording(
   audioUrl?: string
 ): Promise<void> {
   const settings = await getStoredSettings();
+  const apiUrl = import.meta.env.VITE_API_BASE_URL || 'http://localhost:3000';
+
+  let finalAudioUrl = audioUrl;
+
+  // 1. Upload audio directly to Cloudinary (Bypasses Vercel serverless limit completely)
+  if (!finalAudioUrl && authToken && audioBase64) {
+    try {
+      finalAudioUrl = await uploadAudioDirectlyToCloudinary(audioBase64, meetingId, authToken, apiUrl);
+    } catch (uploadErr) {
+      console.warn('Direct upload error:', uploadErr);
+    }
+  }
 
   const meeting: Meeting = {
     id: meetingId,
@@ -289,7 +373,7 @@ async function processFinalRecording(
     startTime: Date.now() - (durationSeconds || 0) * 1000,
     durationSeconds: durationSeconds || 0,
     status: 'completed',
-    audioUrl
+    audioUrl: finalAudioUrl
   };
 
   if (!settings.geminiApiKey) {
@@ -317,16 +401,15 @@ async function processFinalRecording(
     }
   }
 
-  // Upload to Next.js API securely (with audioBase64 and mimeType for backend Cloudinary upload)
+  // 2. Upload metadata & transcript to Next.js API securely
   if (authToken) {
     try {
-      const apiUrl = import.meta.env.VITE_API_BASE_URL || 'http://localhost:3000';
       await axios.post(
         `${apiUrl}/api/meetings`,
         {
           ...meeting,
-          audioBase64,
-          mimeType
+          // Only send heavy audioBase64 to Vercel if direct Cloudinary upload didn't succeed
+          ...(finalAudioUrl ? {} : { audioBase64, mimeType })
         },
         {
           headers: {

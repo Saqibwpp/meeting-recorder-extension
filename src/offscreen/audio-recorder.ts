@@ -12,9 +12,9 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
   if (message.target !== 'offscreen') return;
 
   if (message.type === 'START_OFFSCREEN_RECORDING') {
-    const { streamId, meetingId } = message;
+    const { streamId, meetingId, startTime: passedStartTime } = message;
     currentMeetingId = meetingId;
-    startTime = Date.now();
+    startTime = passedStartTime || Date.now();
     startDualStreamRecording(streamId)
       .then(() => sendResponse({ success: true }))
       .catch(err => {
@@ -209,7 +209,7 @@ async function startDualStreamRecording(tabStreamId: string): Promise<void> {
       }
     };
 
-    mediaRecorder.start(); // Record continuously without chunking
+    mediaRecorder.start(1000); // Record with 1-second timeslice chunking for reliable buffer flushing
     console.log('🎙️ [Offscreen] Started dual-stream recording successfully!');
   } catch (err) {
     console.error('❌ [Offscreen] Failed to start offscreen recording:', err);
