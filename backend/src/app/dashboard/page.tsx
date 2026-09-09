@@ -2,12 +2,12 @@
 
 import React, { useState, useEffect, useCallback } from 'react';
 import Link from 'next/link';
-import { 
+import {
   signInWithEmailAndPassword,
   createUserWithEmailAndPassword,
-  signOut, 
-  onAuthStateChanged, 
-  User 
+  signOut,
+  onAuthStateChanged,
+  User
 } from 'firebase/auth';
 import { getClientAuth } from '@/lib/firebase-client';
 
@@ -196,13 +196,13 @@ export default function DashboardPage() {
           command: "npx",
           args: [
             "-y",
-            "mcp-remote",
+            "mcp-handler",
             mcpEndpointUrl,
             "--header",
-            "Authorization:${AUTH_HEADER}"
+            "Authorization=Bearer ${AUTH_HEADER}"
           ],
           env: {
-            AUTH_HEADER: `Bearer ${activeKey}`
+            AUTH_HEADER: activeKey
           }
         }
       }
@@ -210,16 +210,10 @@ export default function DashboardPage() {
     antigravity: JSON.stringify({
       mcpServers: {
         "embrace-meetings": {
-          command: "npx",
-          args: [
-            "-y",
-            "mcp-remote",
-            mcpEndpointUrl,
-            "--header",
-            "Authorization:${AUTH_HEADER}"
-          ],
-          env: {
-            AUTH_HEADER: `Bearer ${activeKey}`
+          serverUrl: mcpEndpointUrl,
+          headers: {
+            Authorization: `Bearer ${activeKey}`,
+            "Content-Type": "application/json"
           }
         }
       }
@@ -394,9 +388,8 @@ export default function DashboardPage() {
                       <button
                         key={tab}
                         onClick={() => setActiveTab(tab)}
-                        className={`px-3 py-1 rounded-md capitalize text-xs transition-all ${
-                          activeTab === tab ? 'bg-white text-[#1a1a1a] font-medium shadow-sm' : 'text-[#666] hover:text-[#1a1a1a]'
-                        }`}
+                        className={`px-3 py-1 rounded-md capitalize text-xs transition-all ${activeTab === tab ? 'bg-white text-[#1a1a1a] font-medium shadow-sm' : 'text-[#666] hover:text-[#1a1a1a]'
+                          }`}
                       >
                         {tab === 'web' ? 'Claude / Web' : tab}
                       </button>
@@ -414,12 +407,29 @@ export default function DashboardPage() {
                   <pre className="pr-20 whitespace-pre-wrap">{snippets[activeTab]}</pre>
                 </div>
 
-                <p className="text-[11px] text-[#777] mt-3">
-                  {activeTab === 'cursor' && 'Paste this snippet into your project\'s .mcp.json or in Cursor Settings > Features > MCP.'}
-                  {activeTab === 'claude' && 'Paste this into ~/Library/Application Support/Claude/claude_desktop_config.json.'}
-                  {activeTab === 'antigravity' && 'Paste this into your workspace mcp_config.json file.'}
-                  {activeTab === 'web' && 'Browser connectors (Claude.ai Web) require OAuth 2.0 and will be supported in an upcoming update. Use Claude Desktop, Cursor, or Antigravity for direct connection.'}
-                </p>
+                <div className="text-[11px] text-[#777] mt-3 space-y-2">
+                  {activeTab === 'cursor' && <p>Paste this snippet into your projects .mcp.json or in Cursor Settings &gt; Features &gt; MCP.</p>}
+
+                  {activeTab === 'claude' && (
+                    <div className="space-y-1">
+                      <p>Paste this into <code>~/Library/Application Support/Claude/claude_desktop_config.json</code>.</p>
+                      <p className="font-medium text-[#555]">Troubleshooting:</p>
+                      <ul className="list-disc pl-4 space-y-1">
+                        <li>If Claude fails to connect, ensure you have <strong>Node.js</strong> installed, as it requires <code>npx</code> to run the bridge script. You can verify by running <code>node -v</code> in your terminal.</li>
+                        <li>You do <strong>not</strong> need a paid Claude subscription to use this with the Claude Desktop app.</li>
+                      </ul>
+                    </div>
+                  )}
+
+                  {activeTab === 'antigravity' && (
+                    <div className="space-y-1">
+                      <p>Paste this into your workspace <code>.agents/mcp_config.json</code> or global <code>~/.gemini/config/mcp_config.json</code> file.</p>
+                      <p>Antigravity connects directly using the remote <code>serverUrl</code> without needing any local scripts.</p>
+                    </div>
+                  )}
+
+                  {activeTab === 'web' && <p>Browser connectors (Claude.ai Web) require OAuth 2.0 and will be supported in an upcoming update. Use Claude Desktop, Cursor, or Antigravity for direct connection.</p>}
+                </div>
               </div>
             </section>
 
