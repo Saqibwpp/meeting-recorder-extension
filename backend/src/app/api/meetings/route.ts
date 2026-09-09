@@ -81,14 +81,14 @@ export async function POST(request: Request) {
     const uid = await verifyAuth(request);
     const body = await request.json();
 
-    const { audioBase64, mimeType, id: meetingId, ...rest } = body;
+    const { audioBase64, id: meetingId, ...rest } = body;
 
     let audioUrl = '';
 
     // Upload audio to Cloudinary (No credit card required!)
     if (audioBase64 && meetingId) {
       try {
-        audioUrl = await uploadAudioToCloudinary(audioBase64, mimeType, meetingId);
+        audioUrl = await uploadAudioToCloudinary(audioBase64, meetingId);
         console.log('✅ Audio uploaded to Cloudinary:', audioUrl);
       } catch (cloudinaryErr) {
         console.error('⚠️ Audio upload to Cloudinary failed (saving transcript only):', cloudinaryErr);

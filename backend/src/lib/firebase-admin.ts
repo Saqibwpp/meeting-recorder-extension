@@ -27,7 +27,7 @@ if (!serviceAccount && process.env.FIREBASE_SERVICE_ACCOUNT_KEY) {
     if (!envKey.trim().startsWith('{')) {
       try {
         envKey = Buffer.from(envKey, 'base64').toString('utf8');
-      } catch (e) {
+      } catch {
         // Fallback to raw if not base64
       }
     } else {
