@@ -109,7 +109,7 @@ export const App: React.FC = () => {
 
       {/* Main Tab View */}
       <main className="flex-1 px-4 pb-4">
-        {activeTab === 'record' && <RecordingCard />}
+        {activeTab === 'record' && <RecordingCard onNavigateToHistory={() => setActiveTab('history')} />}
         {activeTab === 'history' && <MeetingHistory />}
         {activeTab === 'settings' && <SettingsView />}
       </main>

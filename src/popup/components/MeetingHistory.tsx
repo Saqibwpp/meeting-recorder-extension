@@ -4,7 +4,7 @@ import { useMeetingsQuery, useDeleteMeetingMutation } from '../../hooks/useMeeti
 import { Meeting, TranscriptData } from '../../types';
 
 export const MeetingHistory: React.FC = () => {
-  const { data: meetings = [], isLoading } = useMeetingsQuery();
+  const { data: meetings = [], isLoading, isFetching } = useMeetingsQuery();
   const deleteMutation = useDeleteMeetingMutation();
   const [selectedMeeting, setSelectedMeeting] = useState<Meeting | null>(null);
 
@@ -61,6 +61,15 @@ export const MeetingHistory: React.FC = () => {
 
   return (
     <div className="flex flex-col gap-2.5">
+      {isFetching && (
+        <div className="flex items-center justify-between px-3 py-1.5 bg-[#f4f7f5] border border-[#e2eae4] rounded text-[11px] text-[#5b695e] animate-in fade-in duration-150">
+          <span className="flex items-center gap-1.5">
+            <span className="w-1.5 h-1.5 rounded-full bg-[#5b695e] animate-pulse" />
+            Updating meetings...
+          </span>
+          <div className="w-3.5 h-3.5 border-2 border-[#5b695e]/30 border-t-[#5b695e] rounded-full animate-spin" />
+        </div>
+      )}
       {meetings.map((m) => (
         <div
           key={m.id}

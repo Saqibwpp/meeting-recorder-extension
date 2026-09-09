@@ -3,7 +3,11 @@ import { Mic, Square, Radio, AlertCircle, Sparkles, Volume2 } from 'lucide-react
 import { useRecordingStatusQuery, useStartRecordingMutation, useStopRecordingMutation } from '../../hooks/useMeetings';
 import { useSettingsQuery } from '../../hooks/useSettings';
 
-export const RecordingCard: React.FC = () => {
+interface RecordingCardProps {
+  onNavigateToHistory?: () => void;
+}
+
+export const RecordingCard: React.FC<RecordingCardProps> = ({ onNavigateToHistory }) => {
   const { data: status } = useRecordingStatusQuery();
   const { data: settings } = useSettingsQuery();
   const startMutation = useStartRecordingMutation();
@@ -32,24 +36,14 @@ export const RecordingCard: React.FC = () => {
   const handleToggleRecord = () => {
     if (isRecording) {
       stopMutation.mutate(undefined, {
+        onSuccess: () => {
+          onNavigateToHistory?.();
+        },
         onError: (err) => alert(`Failed to stop: ${err.message}`)
       });
     } else {
-      const requestMic = navigator.mediaDevices.getUserMedia({ audio: true })
-        .then((stream) => stream.getTracks().forEach(t => t.stop()))
-        .catch((err) => {
-          console.warn("Mic permission denied:", err);
-          alert("Microphone permission is required to record your voice!\n\nChrome does not allow permission prompts inside small popups. We are opening the extension in a full tab so you can click 'Allow'.");
-          chrome.tabs.create({ url: chrome.runtime.getURL('src/popup/index.html') });
-          throw new Error("Microphone permission required.");
-        });
-        
-      requestMic.then(() => {
-        startMutation.mutate(undefined, {
-          onError: (err) => alert(`Failed to start recording:\n\n${err.message}\n\nTroubleshooting:\n1. Refresh the meeting tab to clear any stuck capture state.`)
-        });
-      }).catch(() => {
-        // Error already handled and alerted above
+      startMutation.mutate(undefined, {
+        onError: (err) => alert(`Failed to start recording:\n\n${err.message}\n\nTroubleshooting:\n1. Refresh the meeting tab to clear any stuck capture state.`)
       });
     }
   };
