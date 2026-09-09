@@ -194,7 +194,13 @@ export default function DashboardPage() {
       mcpServers: {
         "embrace-meetings": {
           command: "npx",
-          args: ["-y", "mcp-remote", mcpEndpointUrl],
+          args: [
+            "-y",
+            "mcp-remote",
+            mcpEndpointUrl,
+            "--header",
+            "Authorization:${AUTH_HEADER}"
+          ],
           env: {
             AUTH_HEADER: `Bearer ${activeKey}`
           }
@@ -205,14 +211,20 @@ export default function DashboardPage() {
       mcpServers: {
         "embrace-meetings": {
           command: "npx",
-          args: ["-y", "mcp-remote", mcpEndpointUrl],
+          args: [
+            "-y",
+            "mcp-remote",
+            mcpEndpointUrl,
+            "--header",
+            "Authorization:${AUTH_HEADER}"
+          ],
           env: {
             AUTH_HEADER: `Bearer ${activeKey}`
           }
         }
       }
     }, null, 2),
-    web: `Endpoint URL: ${mcpEndpointUrl}\nAuthorization Header: Bearer ${activeKey}`
+    web: `// Claude.ai Web browser connectors require an OAuth 2.0 authorization server.\n// OAuth 2.0 support will be added in an upcoming release.\n// For now, use Claude Desktop App, Antigravity, Cursor, or Windsurf via the tabs above.`
   };
 
   return (
@@ -406,7 +418,7 @@ export default function DashboardPage() {
                   {activeTab === 'cursor' && 'Paste this snippet into your project\'s .mcp.json or in Cursor Settings > Features > MCP.'}
                   {activeTab === 'claude' && 'Paste this into ~/Library/Application Support/Claude/claude_desktop_config.json.'}
                   {activeTab === 'antigravity' && 'Paste this into your workspace mcp_config.json file.'}
-                  {activeTab === 'web' && 'In Claude.ai or Gemini Spark Settings > Connectors, add custom connector with these credentials.'}
+                  {activeTab === 'web' && 'Browser connectors (Claude.ai Web) require OAuth 2.0 and will be supported in an upcoming update. Use Claude Desktop, Cursor, or Antigravity for direct connection.'}
                 </p>
               </div>
             </section>

@@ -49,7 +49,9 @@ This guide explains how to connect AI assistants (Cursor, Windsurf, Claude Deskt
       "args": [
         "-y",
         "mcp-remote",
-        "https://meeting-recorder-extension.vercel.app/api/mcp"
+        "https://meeting-recorder-extension.vercel.app/api/mcp",
+        "--header",
+        "Authorization:${AUTH_HEADER}"
       ],
       "env": {
         "AUTH_HEADER": "Bearer YOUR_EMBRACE_API_KEY"
@@ -64,7 +66,7 @@ This guide explains how to connect AI assistants (Cursor, Windsurf, Claude Deskt
 
 ### C. Antigravity / Gemini CLI
 
-In your workspace or user `mcp_config.json`:
+In your workspace (`.agents/mcp_config.json`) or user (`~/.gemini/config/mcp_config.json`):
 ```json
 {
   "mcpServers": {
@@ -73,7 +75,9 @@ In your workspace or user `mcp_config.json`:
       "args": [
         "-y",
         "mcp-remote",
-        "https://meeting-recorder-extension.vercel.app/api/mcp"
+        "https://meeting-recorder-extension.vercel.app/api/mcp",
+        "--header",
+        "Authorization:${AUTH_HEADER}"
       ],
       "env": {
         "AUTH_HEADER": "Bearer YOUR_EMBRACE_API_KEY"
@@ -83,13 +87,19 @@ In your workspace or user `mcp_config.json`:
 }
 ```
 
+> [!TIP]
+> **Why use the `env` split?**
+> - **Security**: Prevents your API key from being exposed in process listings (`ps aux`).
+> - **Cross-Platform**: Avoids Windows argument escaping/space-splitting issues with `"Bearer ..."`.
+> - Alternatively, writing `"Authorization: Bearer YOUR_KEY"` directly in `--header` also works if preferred.
+
 ---
 
-### D. Claude.ai Web & Gemini Spark Connectors
+### D. Claude.ai Web vs Desktop Note
 
-1. In Claude.ai / Gemini Spark, go to **Settings ➔ Integrations / Connectors ➔ Add Custom Connector**.
-2. **Connector URL**: `https://meeting-recorder-extension.vercel.app/api/mcp`
-3. **Authentication**: Select Bearer Token and paste your `embrace_live_...` key.
+> [!NOTE]
+> **Claude.ai Web Connectors** require a full OAuth 2.0 Dynamic Client Registration server (DCR).
+> For desktop IDEs & assistants (**Claude Desktop**, **Antigravity**, **Cursor**, **Windsurf**), use the direct MCP configs above with your `embrace_live_...` API key.
 
 ---
 
