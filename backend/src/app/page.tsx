@@ -1,4 +1,3 @@
-import React from 'react';
 
 export default function Home() {
   return (
@@ -26,16 +25,16 @@ export default function Home() {
         <p className="text-[#555] text-lg sm:text-xl max-w-xl leading-relaxed mb-10">
           The minimalist AI notetaker extension. Record your meetings, transcribe seamlessly with Gemini, and never miss a decision again.
         </p>
-        
+
         <div className="flex items-center gap-4">
-          <a 
+          <a
             href="#"
             className="py-3 px-6 bg-[#2d2d2d] hover:bg-[#1a1a1a] text-white rounded-[6px] text-[14px] font-medium transition-colors shadow-sm"
           >
             Add to Chrome
           </a>
-          <a 
-            href="#"
+          <a
+            href="/dashboard"
             className="py-3 px-6 bg-white hover:bg-gray-50 text-[#1a1a1a] rounded-[6px] text-[14px] font-medium border border-[#e5e3d9] transition-colors shadow-sm"
           >
             View Dashboard

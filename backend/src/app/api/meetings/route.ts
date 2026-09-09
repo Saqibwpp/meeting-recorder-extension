@@ -1,44 +1,11 @@
 import { NextResponse } from 'next/server';
-import { getDb, getAdminAuth } from '@/lib/firebase-admin';
+import { getDb } from '@/lib/firebase-admin';
 import { uploadAudioToCloudinary } from '@/lib/cloudinary';
+import { getCorsHeaders, handleOptions } from '@/lib/cors';
+import { verifyAuth } from '@/lib/auth';
 
-// Dynamically resolve CORS origin — chrome-extension://* can't use wildcards
-function getCorsHeaders(request: Request): Record<string, string> {
-  const origin = request.headers.get('origin') || '';
-  const isAllowed =
-    origin.startsWith('chrome-extension://') ||
-    origin.startsWith('http://localhost') ||
-    origin === 'https://meeting-recorder-extension.vercel.app';
-
-  return {
-    'Access-Control-Allow-Origin': isAllowed ? origin : '',
-    'Access-Control-Allow-Methods': 'GET, POST, DELETE, OPTIONS',
-    'Access-Control-Allow-Headers': 'Content-Type, Authorization',
-  };
-}
-
-// Handle OPTIONS preflight request
 export async function OPTIONS(request: Request) {
-  return new NextResponse(null, {
-    status: 204,
-    headers: getCorsHeaders(request),
-  });
-}
-
-// Helper to verify the user's token from the Authorization header
-async function verifyAuth(request: Request) {
-  const authHeader = request.headers.get('authorization');
-  if (!authHeader?.startsWith('Bearer ')) {
-    throw new Error('Missing or invalid authorization header');
-  }
-
-  const idToken = authHeader.split('Bearer ')[1];
-  try {
-    const decodedToken = await getAdminAuth().verifyIdToken(idToken);
-    return decodedToken.uid;
-  } catch (error) {
-    throw new Error('Unauthorized', { cause: error });
-  }
+  return handleOptions(request);
 }
 
 export async function GET(request: Request) {

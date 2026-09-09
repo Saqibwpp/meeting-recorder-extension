@@ -1,41 +1,10 @@
 import { NextResponse } from 'next/server';
-import { getAdminAuth } from '@/lib/firebase-admin';
 import { generateUploadSignature } from '@/lib/cloudinary';
-
-function getCorsHeaders(request: Request): Record<string, string> {
-  const origin = request.headers.get('origin') || '';
-  const isAllowed =
-    origin.startsWith('chrome-extension://') ||
-    origin.startsWith('http://localhost') ||
-    origin === 'https://meeting-recorder-extension.vercel.app';
-
-  return {
-    'Access-Control-Allow-Origin': isAllowed ? origin : '',
-    'Access-Control-Allow-Methods': 'GET, OPTIONS',
-    'Access-Control-Allow-Headers': 'Content-Type, Authorization',
-  };
-}
+import { getCorsHeaders, handleOptions } from '@/lib/cors';
+import { verifyAuth } from '@/lib/auth';
 
 export async function OPTIONS(request: Request) {
-  return new NextResponse(null, {
-    status: 204,
-    headers: getCorsHeaders(request),
-  });
-}
-
-async function verifyAuth(request: Request) {
-  const authHeader = request.headers.get('authorization');
-  if (!authHeader?.startsWith('Bearer ')) {
-    throw new Error('Missing or invalid authorization header');
-  }
-
-  const idToken = authHeader.split('Bearer ')[1];
-  try {
-    const decodedToken = await getAdminAuth().verifyIdToken(idToken);
-    return decodedToken.uid;
-  } catch (error) {
-    throw new Error('Unauthorized', { cause: error });
-  }
+  return handleOptions(request, 'GET, OPTIONS');
 }
 
 export async function GET(request: Request) {
