@@ -5,3 +5,6 @@ dist/
 .env.local
 .env.*
 !.env.example
+mcp_config.json
+.agents/mcp_config.json
+.agents/

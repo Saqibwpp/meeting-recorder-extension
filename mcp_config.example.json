@@ -1,0 +1,15 @@
+{
+  "mcpServers": {
+    "embrace-meetings": {
+      "command": "npx",
+      "args": [
+        "-y",
+        "mcp-remote",
+        "https://meeting-recorder-extension.vercel.app/api/mcp"
+      ],
+      "env": {
+        "AUTH_HEADER": "Bearer YOUR_EMBRACE_API_KEY"
+      }
+    }
+  }
+}
