@@ -44,7 +44,13 @@ export function InstallModal() {
                   <div className="w-8 h-8 rounded-full bg-muted flex items-center justify-center shrink-0 font-bold text-foreground">1</div>
                   <div>
                     <h4 className="font-medium text-foreground mb-1">Download the ZIP</h4>
-                    <p className="text-muted-foreground text-xs">Extract the provided ZIP file to a folder on your computer.</p>
+                    <p className="text-muted-foreground text-xs mb-2">Extract the provided ZIP file to a folder on your computer.</p>
+                    <a href="/embrace-extension.zip" download>
+                      <Button size="sm" className="flex items-center gap-2" variant="outline">
+                        <Download className="w-3 h-3" />
+                        Download ZIP
+                      </Button>
+                    </a>
                   </div>
                 </div>
 
