@@ -413,7 +413,6 @@ export default function DashboardPage() {
                       <p className="font-medium text-[#555]">Troubleshooting:</p>
                       <ul className="list-disc pl-4 space-y-1">
                         <li>If Claude fails to connect, ensure you have <strong>Node.js</strong> installed, as it requires <code>npx</code> to run the bridge script. You can verify by running <code>node -v</code> in your terminal.</li>
-                        <li>You do <strong>not</strong> need a paid Claude subscription to use this with the Claude Desktop app.</li>
                       </ul>
                     </div>
                   )}
