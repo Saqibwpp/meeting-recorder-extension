@@ -38,9 +38,9 @@ export const RecordingCard: React.FC<RecordingCardProps> = ({ onNavigateToHistor
     if (countdown === null) return;
     
     if (countdown === 0) {
+      setCountdown(null); // Prevent loop by clearing state BEFORE mutation
       startMutation.mutate(undefined, {
         onError: (err) => {
-          setCountdown(null);
           alert(`Failed to start recording:\n\n${err.message}\n\nTroubleshooting:\n1. Refresh the meeting tab to clear any stuck capture state.`);
         }
       });
@@ -52,7 +52,7 @@ export const RecordingCard: React.FC<RecordingCardProps> = ({ onNavigateToHistor
     }, 1000);
 
     return () => clearTimeout(timer);
-  }, [countdown, startMutation]);
+  }, [countdown, startMutation.mutate]);
 
   const handleToggleRecord = () => {
     if (isRecording) {
