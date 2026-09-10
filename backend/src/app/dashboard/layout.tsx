@@ -36,27 +36,27 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
   }
 
   return (
-    <div className="h-screen overflow-hidden bg-[#fdfcf9] text-[#2d2d2d] font-sans selection:bg-[#e5e3d9] flex flex-col">
+    <div className="h-screen overflow-hidden bg-background text-foreground font-sans flex flex-col">
       {/* Global Header */}
-      <header className="border-b border-[#e5e3d9] bg-white/70 backdrop-blur-md shrink-0 h-[73px] flex items-center">
+      <header className="border-b border-border bg-surface shrink-0 h-[60px] flex items-center shadow-soft relative z-10">
         <div className="w-full px-4 sm:px-6 flex items-center justify-between">
           <div className="flex items-center gap-3">
-            <div className="w-8 h-8 rounded-lg bg-[#2d2d2d] flex items-center justify-center">
-              <span className="text-white text-sm font-semibold">AI</span>
+            <div className="w-7 h-7 rounded-md bg-primary flex items-center justify-center shadow-sm">
+              <span className="text-primary-foreground text-xs font-semibold">AI</span>
             </div>
-            <Link href="/" className="text-lg font-medium tracking-tight text-[#1a1a1a] hover:opacity-80 transition-opacity">
-              Embrace AI <span className="text-xs font-normal px-2 py-0.5 ml-1.5 rounded-full bg-[#f0ede4] text-[#666]">Dashboard</span>
+            <Link href="/" className="text-[15px] font-semibold tracking-tight text-foreground hover:opacity-80 transition-opacity flex items-center gap-2">
+              Embrace AI <span className="font-mono text-[10px] uppercase tracking-widest px-2 py-0.5 rounded bg-muted text-muted-foreground border border-border">Dashboard</span>
             </Link>
           </div>
 
           <div className="flex items-center gap-4">
-            <div className="flex items-center gap-3">
-              <span className="text-xs text-[#666] hidden sm:inline">{user.email}</span>
+            <div className="flex items-center gap-4">
+              <span className="font-mono text-[11px] text-muted-foreground hidden sm:inline">{user.email}</span>
               <button
                 onClick={handleSignOut}
-                className="text-xs px-3 py-1.5 rounded border border-[#e5e3d9] hover:bg-gray-50 text-[#555] transition-colors"
+                className="text-xs px-3 py-1.5 rounded-md border border-border bg-surface hover:bg-muted text-foreground transition-colors shadow-soft"
               >
-                Sign Out
+                Sign out
               </button>
             </div>
           </div>
@@ -64,7 +64,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
       </header>
 
       {/* Main Content Area with Sidebar */}
-      <div className="flex flex-1 w-full overflow-hidden">
+      <div className="flex flex-1 w-full overflow-hidden bg-background/50">
         <Sidebar />
         <main className="flex-1 p-6 sm:p-10 overflow-y-auto relative">
           {children}

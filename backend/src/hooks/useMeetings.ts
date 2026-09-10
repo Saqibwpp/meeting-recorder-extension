@@ -1,6 +1,15 @@
 import { useQuery } from '@tanstack/react-query';
 import { User } from 'firebase/auth';
 
+export interface TranscriptSegment {
+  id?: string | number;
+  startTime?: string;
+  endTime?: string;
+  speaker?: string;
+  channel?: string;
+  text: string;
+}
+
 export interface MeetingItem {
   id: string;
   title: string;
@@ -8,13 +17,14 @@ export interface MeetingItem {
   durationSeconds: number;
   audioUrl?: string;
   transcript?: {
-    text?: string;
+    title?: string;
     summary?: string;
     actionItems?: string[];
-    transcript?: Array<{
-      speaker: string;
-      text: string;
-    }>;
+    date?: string;
+    durationSeconds?: number;
+    engine?: string;
+    meetingId?: string;
+    segments?: TranscriptSegment[];
   };
 }
 

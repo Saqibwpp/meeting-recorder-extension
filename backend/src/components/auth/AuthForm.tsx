@@ -56,54 +56,60 @@ export function AuthForm() {
   };
 
   return (
-    <Card className="max-w-md mx-auto my-8">
-      {firebaseError && (
-        <div className="mb-4 p-4 rounded-lg bg-red-50 border border-red-200 text-red-700 text-xs">
-          {firebaseError}
-        </div>
-      )}
-      <div className="w-10 h-10 rounded-full bg-[#f0ede4] flex items-center justify-center mx-auto mb-4">
-        <KeyRound className="w-5 h-5 text-[#666]" />
-      </div>
-      <h2 className="text-xl font-semibold text-[#1a1a1a] text-center mb-1">
-        {isSignUp ? 'Create your Embrace AI Account' : 'Sign in to Embrace AI'}
-      </h2>
-      <p className="text-xs text-[#666] text-center mb-6">
-        Use the same account you use in your Chrome Extension.
-      </p>
-
-      <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
-        <Input
-          label="Email Address"
-          type="email"
-          placeholder="name@company.com"
-          error={errors.email?.message}
-          {...register('email')}
-        />
-
-        <Input
-          label="Password"
-          type="password"
-          placeholder="••••••••"
-          error={errors.password?.message}
-          {...register('password')}
-        />
-
-        <Button
-          type="submit"
-          className="w-full py-2.5"
-          isLoading={isSubmitting}
-        >
-          {isSignUp ? 'Create Account' : 'Sign In with Email'}
-        </Button>
-      </form>
-
-      <div className="text-center mt-4 text-xs text-[#666]">
-        {isSignUp ? (
-          <>Already have an account? <button type="button" onClick={() => setIsSignUp(false)} className="text-[#1a1a1a] font-medium underline">Sign in</button></>
-        ) : (
-          <>Don&apos;t have an account? <button type="button" onClick={() => setIsSignUp(true)} className="text-[#1a1a1a] font-medium underline">Sign up</button></>
+    <Card className="max-w-[400px] w-full mx-auto my-auto mt-[15vh]">
+      <div className="p-8">
+        {firebaseError && (
+          <div className="mb-4 p-4 rounded-md bg-red-50 border border-red-200 text-red-700 text-xs shadow-soft">
+            {firebaseError}
+          </div>
         )}
+        <div className="w-12 h-12 rounded-lg bg-section-blush flex items-center justify-center mb-6 shadow-soft border border-border">
+          <KeyRound className="w-5 h-5 text-primary" />
+        </div>
+        <h2 className="text-2xl font-semibold text-foreground mb-1 tracking-tight">
+          {isSignUp ? 'Create account' : 'Sign in to Embrace'}
+        </h2>
+        <p className="text-sm text-muted-foreground mb-8 leading-relaxed">
+          Use the same account you use in your Chrome Extension.
+        </p>
+
+        <form onSubmit={handleSubmit(onSubmit)} className="space-y-5">
+          <div className="space-y-1.5">
+            <label className="block font-mono text-[11px] uppercase tracking-wider text-muted-foreground">Email Address</label>
+            <Input
+              type="email"
+              placeholder="name@company.com"
+              error={errors.email?.message}
+              {...register('email')}
+            />
+          </div>
+
+          <div className="space-y-1.5">
+            <label className="block font-mono text-[11px] uppercase tracking-wider text-muted-foreground">Password</label>
+            <Input
+              type="password"
+              placeholder="••••••••"
+              error={errors.password?.message}
+              {...register('password')}
+            />
+          </div>
+
+          <Button
+            type="submit"
+            className="w-full mt-2"
+            isLoading={isSubmitting}
+          >
+            {isSignUp ? 'Create Account' : 'Sign in with Email'}
+          </Button>
+        </form>
+
+        <div className="text-center mt-6 text-sm text-muted-foreground">
+          {isSignUp ? (
+            <>Already have an account? <button type="button" onClick={() => setIsSignUp(false)} className="text-foreground font-medium underline hover:opacity-80 transition-opacity">Sign in</button></>
+          ) : (
+            <>Don&apos;t have an account? <button type="button" onClick={() => setIsSignUp(true)} className="text-foreground font-medium underline hover:opacity-80 transition-opacity">Sign up</button></>
+          )}
+        </div>
       </div>
     </Card>
   );
