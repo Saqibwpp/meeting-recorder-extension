@@ -6,6 +6,11 @@ import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
 import { signInWithEmailAndPassword, createUserWithEmailAndPassword } from 'firebase/auth';
 import { getClientAuth } from '@/lib/firebase-client';
+import { KeyRound } from 'lucide-react';
+
+import { Card } from '@/components/ui/Card';
+import { Input } from '@/components/ui/Input';
+import { Button } from '@/components/ui/Button';
 
 const authSchema = z.object({
   email: z.string().email('Please enter a valid email address'),
@@ -51,14 +56,14 @@ export function AuthForm() {
   };
 
   return (
-    <div className="bg-white border border-[#e5e3d9] rounded-xl p-8 sm:p-10 max-w-md mx-auto shadow-sm my-8">
+    <Card className="max-w-md mx-auto my-8">
       {firebaseError && (
         <div className="mb-4 p-4 rounded-lg bg-red-50 border border-red-200 text-red-700 text-xs">
           {firebaseError}
         </div>
       )}
-      <div className="w-10 h-10 rounded-full bg-[#f0ede4] flex items-center justify-center mx-auto mb-4 text-lg">
-        🔑
+      <div className="w-10 h-10 rounded-full bg-[#f0ede4] flex items-center justify-center mx-auto mb-4">
+        <KeyRound className="w-5 h-5 text-[#666]" />
       </div>
       <h2 className="text-xl font-semibold text-[#1a1a1a] text-center mb-1">
         {isSignUp ? 'Create your Embrace AI Account' : 'Sign in to Embrace AI'}
@@ -68,43 +73,29 @@ export function AuthForm() {
       </p>
 
       <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
-        <div>
-          <label className="block text-xs font-medium text-[#555] mb-1">Email Address</label>
-          <input
-            type="email"
-            placeholder="name@company.com"
-            {...register('email')}
-            className={`w-full px-3 py-2 text-xs rounded-md border focus:outline-none focus:border-[#2d2d2d] bg-[#fdfcf9] ${
-              errors.email ? 'border-red-300' : 'border-[#e5e3d9]'
-            }`}
-          />
-          {errors.email && (
-            <p className="mt-1 text-[11px] text-red-500">{errors.email.message}</p>
-          )}
-        </div>
+        <Input
+          label="Email Address"
+          type="email"
+          placeholder="name@company.com"
+          error={errors.email?.message}
+          {...register('email')}
+        />
 
-        <div>
-          <label className="block text-xs font-medium text-[#555] mb-1">Password</label>
-          <input
-            type="password"
-            placeholder="••••••••"
-            {...register('password')}
-            className={`w-full px-3 py-2 text-xs rounded-md border focus:outline-none focus:border-[#2d2d2d] bg-[#fdfcf9] ${
-              errors.password ? 'border-red-300' : 'border-[#e5e3d9]'
-            }`}
-          />
-          {errors.password && (
-            <p className="mt-1 text-[11px] text-red-500">{errors.password.message}</p>
-          )}
-        </div>
+        <Input
+          label="Password"
+          type="password"
+          placeholder="••••••••"
+          error={errors.password?.message}
+          {...register('password')}
+        />
 
-        <button
+        <Button
           type="submit"
-          disabled={isSubmitting}
-          className="w-full py-2.5 px-4 rounded-md bg-[#2d2d2d] hover:bg-[#1a1a1a] text-white text-xs font-medium transition-colors disabled:opacity-50"
+          className="w-full py-2.5"
+          isLoading={isSubmitting}
         >
-          {isSubmitting ? 'Authenticating...' : isSignUp ? 'Create Account' : 'Sign In with Email'}
-        </button>
+          {isSignUp ? 'Create Account' : 'Sign In with Email'}
+        </Button>
       </form>
 
       <div className="text-center mt-4 text-xs text-[#666]">
@@ -114,6 +105,6 @@ export function AuthForm() {
           <>Don&apos;t have an account? <button type="button" onClick={() => setIsSignUp(true)} className="text-[#1a1a1a] font-medium underline">Sign up</button></>
         )}
       </div>
-    </div>
+    </Card>
   );
 }

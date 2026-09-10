@@ -1,8 +1,9 @@
 'use client';
 
-import React, { useState } from 'react';
+import { useState } from 'react';
 import { useApiKeys, useGenerateApiKey, useRevokeApiKey } from '@/hooks/useApiKeys';
 import { User } from 'firebase/auth';
+import { Zap, Copy, Check } from 'lucide-react';
 
 interface McpSetupProps {
   user: User;
@@ -79,7 +80,7 @@ export function McpSetup({ user }: McpSetupProps) {
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-6 border-b border-[#f0ede4]">
         <div>
           <h2 className="text-lg font-semibold text-[#1a1a1a] flex items-center gap-2">
-            <span>⚡</span> Model Context Protocol (MCP) Integration
+            <Zap className="w-5 h-5 text-[#1a1a1a]" /> Model Context Protocol (MCP) Integration
           </h2>
           <p className="text-xs text-[#666] mt-1">
             Connect your AI coding assistants and web agents directly to your recorded meetings.
@@ -119,9 +120,9 @@ export function McpSetup({ user }: McpSetupProps) {
                 <div className="flex items-center gap-2">
                   <button
                     onClick={() => copyToClipboard(keyItem.apiKey, keyItem.apiKey)}
-                    className="px-2.5 py-1 rounded border border-[#e5e3d9] bg-white hover:bg-gray-50 text-[11px] text-[#444] transition-colors"
+                    className="px-2.5 py-1.5 rounded border border-[#e5e3d9] bg-white hover:bg-gray-50 text-[11px] text-[#444] transition-colors flex items-center gap-1.5"
                   >
-                    {copiedKey === keyItem.apiKey ? '✓ Copied' : 'Copy Key'}
+                    {copiedKey === keyItem.apiKey ? <><Check className="w-3.5 h-3.5" /> Copied</> : <><Copy className="w-3.5 h-3.5" /> Copy Key</>}
                   </button>
                   <button
                     onClick={() => handleRevokeKey(keyItem.apiKey)}
@@ -158,9 +159,9 @@ export function McpSetup({ user }: McpSetupProps) {
         <div className="relative rounded-lg bg-[#1a1a1a] text-gray-200 p-4 font-mono text-xs overflow-x-auto shadow-inner">
           <button
             onClick={() => copyToClipboard(snippets[activeTab], `snippet-${activeTab}`)}
-            className="absolute top-3 right-3 px-3 py-1 rounded bg-[#333] hover:bg-[#444] text-white text-[11px] transition-colors"
+            className="absolute top-3 right-3 px-3 py-1.5 rounded bg-[#333] hover:bg-[#444] text-white text-[11px] transition-colors flex items-center gap-1.5"
           >
-            {copiedKey === `snippet-${activeTab}` ? '✓ Copied' : 'Copy Config'}
+            {copiedKey === `snippet-${activeTab}` ? <><Check className="w-3.5 h-3.5" /> Copied</> : <><Copy className="w-3.5 h-3.5" /> Copy Config</>}
           </button>
           <pre className="pr-20 whitespace-pre-wrap">{snippets[activeTab]}</pre>
         </div>

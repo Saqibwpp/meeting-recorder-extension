@@ -8,6 +8,7 @@ export interface MeetingItem {
   durationSeconds: number;
   audioUrl?: string;
   transcript?: {
+    text?: string;
     summary?: string;
     actionItems?: string[];
   };
