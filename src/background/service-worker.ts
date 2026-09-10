@@ -126,18 +126,30 @@ async function ensureOffscreenDocument(): Promise<void> {
   await creatingOffscreenPromise;
 }
 
+let isStartingRecording = false;
+
 // ── Start Recording ──
 async function handleStartRecording(targetTabId?: number): Promise<void> {
   try {
+    if (isStartingRecording) {
+      console.warn('⚠️ Already starting a recording, ignoring duplicate request');
+      return;
+    }
+    isStartingRecording = true;
+
     // Prevent double-start
     if (activeRecordingTabId !== null) {
       console.warn('⚠️ Already recording, ignoring duplicate start request');
+      isStartingRecording = false;
       return;
     }
 
     const [activeTab] = await chrome.tabs.query({ active: true, currentWindow: true });
     const tabId = targetTabId || activeTab?.id;
-    if (!tabId) throw new Error('No active tab found to record');
+    if (!tabId) {
+      isStartingRecording = false;
+      throw new Error('No active tab found to record');
+    }
 
     await ensureOffscreenDocument();
 
@@ -197,7 +209,10 @@ async function handleStartRecording(targetTabId?: number): Promise<void> {
         handleStopRecording().catch(console.error);
       }
     });
+
+    isStartingRecording = false; // Reset lock on success
   } catch (error: any) {
+    isStartingRecording = false; // Reset lock on failure
     console.error("handleStartRecording FATAL ERROR:", error);
     throw error;
   }
