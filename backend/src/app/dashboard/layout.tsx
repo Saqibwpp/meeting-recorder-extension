@@ -39,7 +39,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
     <div className="min-h-screen bg-[#fdfcf9] text-[#2d2d2d] font-sans selection:bg-[#e5e3d9] flex flex-col">
       {/* Global Header */}
       <header className="border-b border-[#e5e3d9] bg-white/70 backdrop-blur-md sticky top-0 z-30 shrink-0">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 py-4 flex items-center justify-between">
+        <div className="w-full px-4 sm:px-6 py-4 flex items-center justify-between">
           <div className="flex items-center gap-3">
             <div className="w-8 h-8 rounded-lg bg-[#2d2d2d] flex items-center justify-center">
               <span className="text-white text-sm font-semibold">AI</span>
@@ -64,7 +64,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
       </header>
 
       {/* Main Content Area with Sidebar */}
-      <div className="flex flex-1 max-w-7xl mx-auto w-full items-stretch">
+      <div className="flex flex-1 w-full items-stretch">
         <Sidebar />
         <main className="flex-1 p-6 sm:p-10 overflow-x-hidden min-h-[calc(100vh-73px)]">
           {children}

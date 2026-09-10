@@ -101,9 +101,11 @@ export default function MeetingsPage() {
 
                 <div>
                   <h4 className="text-xs font-semibold text-[#888] uppercase tracking-wider mb-2">Transcript</h4>
-                  {selectedMeeting.transcript?.text ? (
-                    <div className="text-xs text-[#444] leading-relaxed whitespace-pre-wrap font-mono bg-gray-50 p-4 rounded-lg border border-[#e5e3d9]">
-                      {selectedMeeting.transcript.text}
+                  {selectedMeeting.transcript ? (
+                    <div className="text-xs text-[#444] leading-relaxed whitespace-pre-wrap font-mono bg-gray-50 p-4 rounded-lg border border-[#e5e3d9] overflow-x-auto max-h-[500px] overflow-y-auto">
+                      {typeof selectedMeeting.transcript.text === 'string' 
+                        ? selectedMeeting.transcript.text 
+                        : JSON.stringify(selectedMeeting.transcript, null, 2)}
                     </div>
                   ) : (
                     <div className="text-xs text-[#777] italic p-4 rounded-lg bg-gray-50 border border-[#e5e3d9]">
