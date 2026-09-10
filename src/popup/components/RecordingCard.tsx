@@ -32,6 +32,28 @@ export const RecordingCard: React.FC<RecordingCardProps> = ({ onNavigateToHistor
     return `${String(mins).padStart(2, '0')}:${String(secs).padStart(2, '0')}`;
   };
 
+  const [countdown, setCountdown] = useState<number | null>(null);
+
+  useEffect(() => {
+    if (countdown === null) return;
+    
+    if (countdown === 0) {
+      startMutation.mutate(undefined, {
+        onError: (err) => {
+          setCountdown(null);
+          alert(`Failed to start recording:\n\n${err.message}\n\nTroubleshooting:\n1. Refresh the meeting tab to clear any stuck capture state.`);
+        }
+      });
+      return;
+    }
+
+    const timer = setTimeout(() => {
+      setCountdown(countdown - 1);
+    }, 1000);
+
+    return () => clearTimeout(timer);
+  }, [countdown, startMutation]);
+
   const handleToggleRecord = () => {
     if (isRecording) {
       stopMutation.mutate(undefined, {
@@ -41,9 +63,7 @@ export const RecordingCard: React.FC<RecordingCardProps> = ({ onNavigateToHistor
         onError: (err) => alert(`Failed to stop: ${err.message}`)
       });
     } else {
-      startMutation.mutate(undefined, {
-        onError: (err) => alert(`Failed to start recording:\n\n${err.message}\n\nTroubleshooting:\n1. Refresh the meeting tab to clear any stuck capture state.`)
-      });
+      setCountdown(3);
     }
   };
 
@@ -114,14 +134,16 @@ export const RecordingCard: React.FC<RecordingCardProps> = ({ onNavigateToHistor
       {/* Action Button */}
       <button
         onClick={handleToggleRecord}
-        disabled={isPending}
+        disabled={isPending || countdown !== null}
         className={`w-full py-2.5 px-4 rounded text-[13px] flex items-center justify-center transition-all border ${
           isRecording
             ? 'bg-white border-[#e5e3d9] hover:bg-[#fcf5f3] text-[#da7756]'
             : 'bg-[#2d2d2d] border-[#2d2d2d] hover:bg-[#1a1a1a] text-white'
         } disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer`}
       >
-        {isPending ? (
+        {countdown !== null ? (
+          <span>Starting in {countdown}...</span>
+        ) : isPending ? (
           <span>Processing...</span>
         ) : isRecording ? (
           <span>Stop & Transcribe</span>
