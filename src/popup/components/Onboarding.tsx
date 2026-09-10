@@ -105,7 +105,8 @@ export const Onboarding: React.FC<OnboardingProps> = ({ onComplete }) => {
   if (isLoading) return null;
 
   return (
-    <div className="flex flex-col h-full bg-[#fdfcf9] text-[#2d2d2d] justify-center px-6 py-10 min-h-[560px]">
+    <div className="flex flex-col min-h-screen bg-[#fdfcf9] text-[#2d2d2d] items-center justify-center">
+      <div className="w-full max-w-[360px] px-6 py-10 flex flex-col justify-center">
       
       {/* Progress Header */}
       <div className="flex items-center justify-between mb-10">
@@ -231,6 +232,7 @@ export const Onboarding: React.FC<OnboardingProps> = ({ onComplete }) => {
             </div>
           </div>
         )}
+      </div>
       </div>
     </div>
   );
