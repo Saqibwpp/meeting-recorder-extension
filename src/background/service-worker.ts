@@ -94,18 +94,36 @@ chrome.tabs.onRemoved.addListener((tabId) => {
   }
 });
 
-// ── Offscreen document manager ──
-async function ensureOffscreenDocument(): Promise<void> {
-  const existingContexts = await chrome.runtime.getContexts({
-    contextTypes: [chrome.runtime.ContextType.OFFSCREEN_DOCUMENT]
-  });
-  if (existingContexts.length > 0) return;
+let creatingOffscreenPromise: Promise<void> | null = null;
 
-  await chrome.offscreen.createDocument({
-    url: 'src/offscreen/offscreen.html',
-    reasons: [chrome.offscreen.Reason.USER_MEDIA, chrome.offscreen.Reason.DISPLAY_MEDIA, chrome.offscreen.Reason.AUDIO_PLAYBACK],
-    justification: 'Recording tab audio and microphone for meeting transcription'
-  });
+async function ensureOffscreenDocument(): Promise<void> {
+  if (creatingOffscreenPromise) {
+    await creatingOffscreenPromise;
+    return;
+  }
+
+  creatingOffscreenPromise = (async () => {
+    try {
+      const existingContexts = await chrome.runtime.getContexts({
+        contextTypes: [chrome.runtime.ContextType.OFFSCREEN_DOCUMENT]
+      });
+      if (existingContexts.length > 0) return;
+
+      await chrome.offscreen.createDocument({
+        url: 'src/offscreen/offscreen.html',
+        reasons: [chrome.offscreen.Reason.USER_MEDIA, chrome.offscreen.Reason.DISPLAY_MEDIA, chrome.offscreen.Reason.AUDIO_PLAYBACK],
+        justification: 'Recording tab audio and microphone for meeting transcription'
+      });
+    } catch (err: any) {
+      if (!err.message.includes('single offscreen document')) {
+        throw err;
+      }
+    } finally {
+      creatingOffscreenPromise = null;
+    }
+  })();
+
+  await creatingOffscreenPromise;
 }
 
 // ── Start Recording ──
@@ -283,6 +301,12 @@ chrome.runtime.onMessage.addListener((message: Record<string, unknown>, sender, 
       });
 
     sendResponse({ received: true });
+    
+    // Forcefully close the offscreen document now that data is received to free hardware mic
+    setTimeout(() => {
+      chrome.offscreen.closeDocument().catch(() => {});
+    }, 500);
+
     return true;
   }
 });
