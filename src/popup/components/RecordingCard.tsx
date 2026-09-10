@@ -49,7 +49,7 @@ export const RecordingCard: React.FC<RecordingCardProps> = ({ onNavigateToHistor
 
     const timer = setTimeout(() => {
       setCountdown(countdown - 1);
-    }, 1000);
+    }, 500);
 
     return () => clearTimeout(timer);
   }, [countdown, startMutation.mutate]);
