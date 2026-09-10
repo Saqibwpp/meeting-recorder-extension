@@ -11,6 +11,10 @@ export interface MeetingItem {
     text?: string;
     summary?: string;
     actionItems?: string[];
+    transcript?: Array<{
+      speaker: string;
+      text: string;
+    }>;
   };
 }
 

@@ -12,8 +12,8 @@ export function Sidebar() {
   ];
 
   return (
-    <aside className="w-64 border-r border-[#e5e3d9] bg-white hidden md:block shrink-0 min-h-[calc(100vh-73px)]">
-      <nav className="p-4 space-y-1 sticky top-[73px]">
+    <aside className="w-64 border-r border-[#e5e3d9] bg-white hidden md:block shrink-0 h-full overflow-y-auto">
+      <nav className="p-4 space-y-1">
         {navItems.map(item => (
           <Link 
             key={item.href} 

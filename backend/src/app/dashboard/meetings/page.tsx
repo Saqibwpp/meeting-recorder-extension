@@ -21,7 +21,7 @@ export default function MeetingsPage() {
         <p className="text-sm text-[#666] mt-1">Review your past meetings, read transcripts, and listen to recordings.</p>
       </div>
 
-      <div className="flex flex-col lg:flex-row gap-6 items-start lg:h-[calc(100vh-200px)]">
+      <div className="flex flex-col lg:flex-row gap-6 items-start lg:h-[calc(100vh-220px)]">
         {/* Left Column: Meeting List */}
         <Card className="w-full lg:w-1/3 flex flex-col lg:h-full overflow-hidden shrink-0" noPadding>
           <div className="p-4 border-b border-[#e5e3d9] bg-[#fdfcf9]">
@@ -101,15 +101,22 @@ export default function MeetingsPage() {
 
                 <div>
                   <h4 className="text-xs font-semibold text-[#888] uppercase tracking-wider mb-2">Transcript</h4>
-                  {selectedMeeting.transcript ? (
-                    <div className="text-xs text-[#444] leading-relaxed whitespace-pre-wrap font-mono bg-gray-50 p-4 rounded-lg border border-[#e5e3d9] overflow-x-auto max-h-[500px] overflow-y-auto">
-                      {typeof selectedMeeting.transcript.text === 'string' 
-                        ? selectedMeeting.transcript.text 
-                        : JSON.stringify(selectedMeeting.transcript, null, 2)}
+                  {selectedMeeting.transcript?.text ? (
+                    <div className="text-xs text-[#444] leading-relaxed whitespace-pre-wrap font-mono bg-gray-50 p-4 rounded-lg border border-[#e5e3d9]">
+                      {selectedMeeting.transcript.text}
+                    </div>
+                  ) : Array.isArray(selectedMeeting.transcript?.transcript) ? (
+                    <div className="text-xs text-[#444] leading-relaxed bg-gray-50 p-4 rounded-lg border border-[#e5e3d9] space-y-4">
+                      {selectedMeeting.transcript.transcript.map((utterance, idx: number) => (
+                        <div key={idx}>
+                          <span className="font-semibold text-[#1a1a1a]">{utterance.speaker}: </span>
+                          <span>{utterance.text}</span>
+                        </div>
+                      ))}
                     </div>
                   ) : (
-                    <div className="text-xs text-[#777] italic p-4 rounded-lg bg-gray-50 border border-[#e5e3d9]">
-                      No transcript text available.
+                    <div className="text-xs text-[#444] leading-relaxed whitespace-pre-wrap font-mono bg-gray-50 p-4 rounded-lg border border-[#e5e3d9] overflow-x-auto">
+                      {JSON.stringify(selectedMeeting.transcript, null, 2)}
                     </div>
                   )}
                 </div>

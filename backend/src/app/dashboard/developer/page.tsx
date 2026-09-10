@@ -11,7 +11,7 @@ export default function DeveloperPage() {
   if (!user) return null; // Layout handles auth wall
 
   return (
-    <div className="space-y-8 max-w-4xl">
+    <div className="space-y-8 max-w-7xl">
       <div>
         <h1 className="text-2xl font-bold text-[#1a1a1a]">Developer & MCP</h1>
         <p className="text-sm text-[#666] mt-1">Manage your API keys and AI assistant connections.</p>
