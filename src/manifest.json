@@ -16,8 +16,7 @@
     "https://meet.google.com/*",
     "https://teams.microsoft.com/*",
     "https://teams.live.com/*",
-    "https://*.zoom.us/*",
-    "https://app.slack.com/*",
+    "https://teams.cloud.microsoft/*",
     "https://generativelanguage.googleapis.com/*"
   ],
   "background": {
@@ -38,8 +37,7 @@
         "https://meet.google.com/*",
         "https://teams.microsoft.com/*",
         "https://teams.live.com/*",
-        "https://*.zoom.us/*",
-        "https://app.slack.com/*"
+        "https://teams.cloud.microsoft/*"
       ],
       "js": [
         "content.js"

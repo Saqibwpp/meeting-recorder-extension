@@ -1,14 +1,58 @@
-import { ExtensionMessage } from '../types';
-
 let promptContainer: HTMLDivElement | null = null;
 let userDismissedPrompt = false;
+let lastUrl = location.href;
+let domCallDetected = false;
 
-// Listen for background trigger (meeting platform detected)
-chrome.runtime.onMessage.addListener((message: ExtensionMessage) => {
-  if (message.type === 'MEETING_DETECTED') {
-    maybeShowPrompt(message.payload.title);
+// 1. URL Watcher for SPAs (Google Meet / Teams switching rooms)
+setInterval(() => {
+  if (lastUrl !== location.href) {
+    lastUrl = location.href;
+    userDismissedPrompt = false;
+    domCallDetected = false; // Reset DOM state on navigation
   }
-});
+}, 1000);
+
+// 2. DOM Watcher for Active Calls (Works for Meet and Teams)
+setInterval(() => {
+  const isMeet = location.href.includes('meet.google.com');
+  const isTeams = location.href.includes('teams.microsoft.com') || 
+                  location.href.includes('teams.live.com') || 
+                  location.href.includes('teams.cloud.microsoft');
+                  
+  if (!isMeet && !isTeams) return;
+      
+  const isCallActive = checkCallUiActive();
+  
+  if (isCallActive && !domCallDetected) {
+    domCallDetected = true;
+    userDismissedPrompt = false; // Force prompt on new DOM call detected
+    const platform = isMeet ? 'Google Meet' : 'Teams Call';
+    maybeShowPrompt(document.title || platform);
+  } else if (!isCallActive && domCallDetected) {
+    domCallDetected = false;
+  }
+}, 2000);
+
+function checkCallUiActive(): boolean {
+  // Look specifically for "Leave" or "Hang up" buttons which only appear when IN a call, not in the lobby
+  const selectors = [
+    '[aria-label*="Leave"]', '[title*="Leave"]', '[data-tid*="leave"]',
+    '[aria-label*="Hang up"]', '[title*="Hang up"]', 'button#hangup-button'
+  ];
+  for (const sel of selectors) {
+    if (document.querySelector(sel)) return true;
+  }
+  
+  // Fallback: check button text
+  const buttons = document.querySelectorAll('button');
+  for (let i = 0; i < Math.min(buttons.length, 50); i++) { // Limit to 50 to avoid perf hit
+    const text = buttons[i].textContent?.toLowerCase();
+    if (text?.includes('leave') || text?.includes('calling...')) {
+      return true;
+    }
+  }
+  return false;
+}
 
 async function maybeShowPrompt(title: string) {
   // Don't show if user already dismissed in this page session

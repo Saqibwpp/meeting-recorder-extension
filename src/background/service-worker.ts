@@ -59,10 +59,8 @@ function detectPlatform(url?: string): MeetingPlatform {
   try {
     const urlObj = new URL(url);
     if (url.includes('meet.google.com') && urlObj.pathname.length > 2) return 'google-meet';
-    if ((url.includes('teams.microsoft.com') || url.includes('teams.live.com')) && 
+    if ((url.includes('teams.microsoft.com') || url.includes('teams.live.com') || url.includes('teams.cloud.microsoft')) && 
         (url.includes('meetup-join') || url.includes('meet'))) return 'microsoft-teams';
-    if (url.includes('zoom.us') && (url.includes('/j/') || url.includes('/wc/') || url.includes('/join'))) return 'zoom';
-    if (url.includes('slack.com') && url.includes('huddle')) return 'slack';
   } catch {
     // Invalid URL
   }
