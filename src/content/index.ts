@@ -24,20 +24,22 @@ setInterval(() => {
 }, 2000);
 
 function checkCallUiActive(): boolean {
-  // Look specifically for "Leave" or "Hang up" buttons which only appear when IN a call, not in the lobby
+  // Look specifically for "Leave", "End call", or "Hang up" buttons
   const selectors = [
-    '[aria-label*="Leave"]', '[title*="Leave"]', '[data-tid*="leave"]',
-    '[aria-label*="Hang up"]', '[title*="Hang up"]', 'button#hangup-button'
+    '[aria-label*="leave" i]', '[title*="leave" i]', '[data-tid*="leave" i]',
+    '[aria-label*="hang" i]', '[title*="hang" i]', '#hangup-button',
+    '[aria-label*="end call" i]', '[title*="end call" i]',
+    '[data-tid="call-status"]', '[data-tid="participant-state-indicator"]'
   ];
   for (const sel of selectors) {
     if (document.querySelector(sel)) return true;
   }
   
   // Fallback: check button text
-  const buttons = document.querySelectorAll('button');
-  for (let i = 0; i < Math.min(buttons.length, 50); i++) { // Limit to 50 to avoid perf hit
+  const buttons = document.querySelectorAll('button, [role="button"]');
+  for (let i = 0; i < Math.min(buttons.length, 100); i++) {
     const text = buttons[i].textContent?.toLowerCase();
-    if (text?.includes('leave') || text?.includes('calling...')) {
+    if (text?.includes('leave') || text?.includes('calling...') || text?.includes('hang up') || text?.includes('end call')) {
       return true;
     }
   }
