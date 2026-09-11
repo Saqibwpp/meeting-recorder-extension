@@ -46,6 +46,27 @@ export const App: React.FC = () => {
     return <Onboarding onComplete={() => setIsOnboarding(false)} />;
   }
 
+  const isFullTab = window.innerWidth > 500 || new URLSearchParams(window.location.search).get('setup') === 'true';
+  
+  if (isFullTab) {
+    return (
+      <div className="flex flex-col min-h-screen bg-[#fdfcf9] text-[#2d2d2d] items-center justify-center">
+        <div className="w-[420px] px-6 py-10 flex flex-col justify-center text-center">
+          <div className="w-16 h-16 bg-[#eefae6] text-[#4d8b31] rounded-full flex items-center justify-center mx-auto mb-6">
+            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2.5} stroke="currentColor" className="w-8 h-8">
+              <path strokeLinecap="round" strokeLinejoin="round" d="m4.5 12.75 6 6 9-13.5" />
+            </svg>
+          </div>
+          <h1 className="text-2xl text-[#1a1a1a] mb-2 font-semibold">Setup Complete!</h1>
+          <p className="text-[14px] text-[#555] mb-8 leading-relaxed">
+            Your microphone is connected and your API key is saved. 
+            You can now close this tab. To start recording a meeting, click the Embrace extension icon in your browser toolbar while on your meeting page.
+          </p>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="flex flex-col w-[420px] mx-auto min-h-screen sm:min-h-[560px] bg-[#fdfcf9] text-[#2d2d2d] sm:shadow-2xl relative">
       {/* Header */}

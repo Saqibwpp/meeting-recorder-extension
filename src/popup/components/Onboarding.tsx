@@ -105,7 +105,7 @@ export const Onboarding: React.FC<OnboardingProps> = ({ onComplete }) => {
       console.error(err);
       setError('Microphone permission is required to record meetings. Please click Allow.');
       if (err instanceof Error && err.name === 'NotAllowedError') {
-        chrome.tabs.create({ url: chrome.runtime.getURL('src/popup/index.html') });
+        chrome.tabs.create({ url: chrome.runtime.getURL('src/popup/index.html?setup=true') });
       }
     }
   };
