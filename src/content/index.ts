@@ -73,7 +73,6 @@ function showMeetingPrompt(title: string) {
         <div style="font-size: 14px; font-weight: 600; color: #1a1a1a;">Meeting Detected</div>
         <div style="font-size: 12px; color: #888; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">${escapeHtml(title || 'Active Call')}</div>
       </div>
-    </div>
     <div style="font-size: 13px; color: #555; line-height: 1.4;">
       Would you like to start the AI Notetaker to record and transcribe this meeting?
     </div>
@@ -96,17 +95,49 @@ function showMeetingPrompt(title: string) {
 
   document.getElementById('ai-btn-record')?.addEventListener('click', () => {
     userDismissedPrompt = true;
-    chrome.runtime.sendMessage({ type: 'START_RECORDING' });
+    
+    // Show a loading state instantly
     if (promptContainer) {
       promptContainer.innerHTML = `
         <div style="display: flex; align-items: center; gap: 10px;">
-          <div style="width: 10px; height: 10px; border-radius: 50%; background: #d97757; box-shadow: 0 0 8px rgba(217,119,87,0.4); animation: aiPulseReady 1.2s infinite;"></div>
-          <div style="font-size: 14px; font-weight: 600; color: #d97757;">Recording In Progress...</div>
+          <div style="width: 10px; height: 10px; border-radius: 50%; background: #e5e3d9; box-shadow: 0 0 8px rgba(0,0,0,0.1); animation: aiPulseReady 1.2s infinite;"></div>
+          <div style="font-size: 14px; font-weight: 600; color: #555;">Starting...</div>
         </div>
-        <div style="font-size: 12px; color: #888; margin-top: 4px;">Click the extension icon at any time to stop and transcribe.</div>
       `;
-      setTimeout(removePrompt, 3000);
     }
+
+    chrome.runtime.sendMessage({ type: 'START_RECORDING' }, (response) => {
+      if (response && response.success) {
+        if (promptContainer) {
+          promptContainer.innerHTML = `
+            <div style="display: flex; align-items: center; gap: 10px;">
+              <div style="width: 10px; height: 10px; border-radius: 50%; background: #d97757; box-shadow: 0 0 8px rgba(217,119,87,0.4); animation: aiPulseReady 1.2s infinite;"></div>
+              <div style="font-size: 14px; font-weight: 600; color: #d97757;">Recording In Progress...</div>
+            </div>
+            <div style="font-size: 12px; color: #888; margin-top: 4px;">Click the extension icon at any time to stop and transcribe.</div>
+          `;
+          setTimeout(removePrompt, 3000);
+        }
+      } else {
+        // Chrome blocked it because of missing user gesture
+        if (promptContainer) {
+          promptContainer.innerHTML = `
+            <div style="display: flex; align-items: center; gap: 10px;">
+              <div style="font-size: 14px; font-weight: 600; color: #da7756;">Permission Required</div>
+            </div>
+            <div style="font-size: 13px; color: #555; margin-top: 4px; line-height: 1.4;">
+              Chrome requires you to click the <strong>AI Notetaker extension icon</strong> in your browser toolbar to start recording.
+            </div>
+            <div style="display: flex; justify-content: flex-end; gap: 8px; margin-top: 4px;">
+              <button id="ai-btn-close-error" style="background: #f2f0e9; border: 1px solid #e5e3d9; color: #666; padding: 8px 14px; border-radius: 4px; font-size: 12px; cursor: pointer; font-weight: 500;">
+                Got it
+              </button>
+            </div>
+          `;
+          document.getElementById('ai-btn-close-error')?.addEventListener('click', removePrompt);
+        }
+      }
+    });
   });
 }
 
