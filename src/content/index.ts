@@ -23,23 +23,33 @@ setInterval(() => {
   }
 }, 2000);
 
+function isVisible(el: Element): boolean {
+  const rect = el.getBoundingClientRect();
+  return rect.width > 0 && rect.height > 0;
+}
+
 function checkCallUiActive(): boolean {
-  // Look specifically for "Leave", "End call", or "Hang up" buttons
+  // Exact matches to prevent false positives like "Leave chat" or "Leave channel"
   const selectors = [
-    '[aria-label*="leave" i]', '[title*="leave" i]', '[data-tid*="leave" i]',
-    '[aria-label*="hang" i]', '[title*="hang" i]', '#hangup-button',
-    '[aria-label*="end call" i]', '[title*="end call" i]',
+    '[aria-label="Leave" i]', '[aria-label="Leave call" i]',
+    '[title="Leave" i]', '[title="Leave call" i]',
+    '[aria-label="Hang up" i]', '[title="Hang up" i]', '#hangup-button',
+    '[aria-label="End call" i]', '[title="End call" i]',
     '[data-tid="call-status"]', '[data-tid="participant-state-indicator"]'
   ];
   for (const sel of selectors) {
-    if (document.querySelector(sel)) return true;
+    const el = document.querySelector(sel);
+    if (el && isVisible(el)) return true;
   }
   
-  // Fallback: check button text
+  // Fallback: check button text exactly
   const buttons = document.querySelectorAll('button, [role="button"]');
   for (let i = 0; i < Math.min(buttons.length, 100); i++) {
-    const text = buttons[i].textContent?.toLowerCase();
-    if (text?.includes('leave') || text?.includes('calling...') || text?.includes('hang up') || text?.includes('end call')) {
+    const el = buttons[i];
+    if (!isVisible(el)) continue;
+    
+    const text = el.textContent?.trim().toLowerCase();
+    if (text === 'leave' || text === 'leave call' || text === 'hang up' || text === 'end call' || text === 'calling...') {
       return true;
     }
   }
