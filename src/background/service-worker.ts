@@ -204,7 +204,12 @@ async function handleStartRecording(targetTabId?: number): Promise<void> {
       }
     });
   } catch (error: any) {
-    console.error("handleStartRecording FATAL ERROR:", error);
+    // If it's a known permission error from our fallback flow, just warn. Otherwise error.
+    if (error.message?.includes('Extension has not been invoked')) {
+      console.warn("Expected permission missing for seamless capture. Falling back to manual extension click.", error.message);
+    } else {
+      console.error("handleStartRecording ERROR:", error);
+    }
     throw error;
   }
 }
