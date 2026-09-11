@@ -56,18 +56,24 @@ chrome.runtime.onConnect.addListener((port) => {
 // ── Platform detection ──
 function detectPlatform(url?: string): MeetingPlatform {
   if (!url) return 'unknown';
-  if (url.includes('meet.google.com')) return 'google-meet';
-  if (url.includes('teams.microsoft.com') || url.includes('teams.live.com')) return 'microsoft-teams';
-  if (url.includes('zoom.us')) return 'zoom';
-  if (url.includes('slack.com')) return 'slack';
-  if (url.includes('localhost')) return 'local-test';
-  return 'browser-tab';
+  try {
+    const urlObj = new URL(url);
+    if (url.includes('meet.google.com') && urlObj.pathname.length > 2) return 'google-meet';
+    if ((url.includes('teams.microsoft.com') || url.includes('teams.live.com')) && 
+        (url.includes('meetup-join') || url.includes('meet'))) return 'microsoft-teams';
+    if (url.includes('zoom.us') && (url.includes('/j/') || url.includes('/wc/') || url.includes('/join'))) return 'zoom';
+    if (url.includes('slack.com') && url.includes('huddle')) return 'slack';
+  } catch {
+    // Invalid URL
+  }
+  return 'unknown';
 }
 
 // ── Tab monitoring (sends prompt to content script) ──
 chrome.tabs.onUpdated.addListener(async (tabId, changeInfo, tab) => {
   const settings = await getStoredSettings();
-  if (!settings.autoDetectMeetings) return;
+  // Don't show if auto-detect is off, or if the user hasn't set up the extension (missing API key)
+  if (!settings.autoDetectMeetings || !settings.geminiApiKey) return;
   if (changeInfo.status !== 'complete') return;
 
   const url = tab.url || '';

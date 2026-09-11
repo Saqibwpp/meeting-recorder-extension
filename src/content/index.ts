@@ -36,13 +36,13 @@ function showMeetingPrompt(title: string) {
     right: 20px;
     z-index: 9999999;
     font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
-    background: rgba(15, 23, 42, 0.94);
+    background: rgba(253, 252, 249, 0.98);
     backdrop-filter: blur(16px);
-    border: 1px solid rgba(255, 255, 255, 0.15);
-    border-radius: 16px;
+    border: 1px solid #e5e3d9;
+    border-radius: 12px;
     padding: 16px 20px;
-    box-shadow: 0 20px 40px rgba(0, 0, 0, 0.4);
-    color: #ffffff;
+    box-shadow: 0 10px 30px rgba(0, 0, 0, 0.1);
+    color: #2d2d2d;
     max-width: 360px;
     display: flex;
     flex-direction: column;
@@ -58,7 +58,7 @@ function showMeetingPrompt(title: string) {
         from { transform: translateY(-30px); opacity: 0; }
         to { transform: translateY(0); opacity: 1; }
       }
-      @keyframes aiPulse {
+      @keyframes aiPulseReady {
         0%, 100% { transform: scale(1); opacity: 1; }
         50% { transform: scale(1.15); opacity: 0.7; }
       }
@@ -68,20 +68,20 @@ function showMeetingPrompt(title: string) {
 
   promptContainer.innerHTML = `
     <div style="display: flex; align-items: center; gap: 10px;">
-      <div style="width: 12px; height: 12px; border-radius: 50%; background: #22c55e; box-shadow: 0 0 10px #22c55e; animation: aiPulse 2s infinite;"></div>
+      <div style="width: 10px; height: 10px; border-radius: 50%; background: #5b695e; box-shadow: 0 0 8px rgba(91,105,94,0.4); animation: aiPulseReady 2s infinite;"></div>
       <div style="flex: 1;">
-        <div style="font-size: 14px; font-weight: 600; color: #f8fafc;">Meeting Detected</div>
-        <div style="font-size: 12px; color: #94a3b8; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">${escapeHtml(title || 'Active Call')}</div>
+        <div style="font-size: 14px; font-weight: 600; color: #1a1a1a;">Meeting Detected</div>
+        <div style="font-size: 12px; color: #888; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">${escapeHtml(title || 'Active Call')}</div>
       </div>
     </div>
-    <div style="font-size: 13px; color: #cbd5e1; line-height: 1.4;">
+    <div style="font-size: 13px; color: #555; line-height: 1.4;">
       Would you like to start the AI Notetaker to record and transcribe this meeting?
     </div>
     <div style="display: flex; justify-content: flex-end; gap: 8px; margin-top: 4px;">
-      <button id="ai-btn-dismiss" style="background: rgba(255,255,255,0.08); border: none; color: #94a3b8; padding: 8px 14px; border-radius: 8px; font-size: 12px; cursor: pointer; font-weight: 500;">
+      <button id="ai-btn-dismiss" style="background: #f2f0e9; border: 1px solid #e5e3d9; color: #666; padding: 8px 14px; border-radius: 4px; font-size: 12px; cursor: pointer; font-weight: 500;">
         Dismiss
       </button>
-      <button id="ai-btn-record" style="background: linear-gradient(135deg, #22c55e, #16a34a); border: none; color: #ffffff; padding: 8px 16px; border-radius: 8px; font-size: 12px; cursor: pointer; font-weight: 600; box-shadow: 0 4px 12px rgba(34, 197, 94, 0.3);">
+      <button id="ai-btn-record" style="background: #2d2d2d; border: 1px solid #2d2d2d; color: #ffffff; padding: 8px 16px; border-radius: 4px; font-size: 12px; cursor: pointer; font-weight: 500;">
         Start Recording
       </button>
     </div>
@@ -100,10 +100,10 @@ function showMeetingPrompt(title: string) {
     if (promptContainer) {
       promptContainer.innerHTML = `
         <div style="display: flex; align-items: center; gap: 10px;">
-          <div style="width: 12px; height: 12px; border-radius: 50%; background: #ef4444; box-shadow: 0 0 10px #ef4444; animation: aiPulse 1.2s infinite;"></div>
-          <div style="font-size: 14px; font-weight: 600; color: #ef4444;">Recording In Progress...</div>
+          <div style="width: 10px; height: 10px; border-radius: 50%; background: #d97757; box-shadow: 0 0 8px rgba(217,119,87,0.4); animation: aiPulseReady 1.2s infinite;"></div>
+          <div style="font-size: 14px; font-weight: 600; color: #d97757;">Recording In Progress...</div>
         </div>
-        <div style="font-size: 12px; color: #94a3b8;">Click the extension icon at any time to stop and transcribe.</div>
+        <div style="font-size: 12px; color: #888; margin-top: 4px;">Click the extension icon at any time to stop and transcribe.</div>
       `;
       setTimeout(removePrompt, 3000);
     }
