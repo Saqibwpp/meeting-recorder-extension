@@ -1,18 +1,8 @@
 let promptContainer: HTMLDivElement | null = null;
 let userDismissedPrompt = false;
-let lastUrl = location.href;
 let domCallDetected = false;
 
-// 1. URL Watcher for SPAs (Google Meet / Teams switching rooms)
-setInterval(() => {
-  if (lastUrl !== location.href) {
-    lastUrl = location.href;
-    userDismissedPrompt = false;
-    domCallDetected = false; // Reset DOM state on navigation
-  }
-}, 1000);
-
-// 2. DOM Watcher for Active Calls (Works for Meet and Teams)
+// 1. DOM Watcher for Active Calls (Works for Meet and Teams)
 setInterval(() => {
   const isMeet = location.href.includes('meet.google.com');
   const isTeams = location.href.includes('teams.microsoft.com') || 
