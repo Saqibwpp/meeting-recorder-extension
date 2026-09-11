@@ -67,20 +67,21 @@ function showMeetingPrompt(title: string) {
   }
 
   promptContainer.innerHTML = `
-    <div style="display: flex; align-items: center; gap: 10px;">
+    <div style="display: flex; align-items: center; gap: 10px; margin-bottom: 4px;">
       <div style="width: 10px; height: 10px; border-radius: 50%; background: #5b695e; box-shadow: 0 0 8px rgba(91,105,94,0.4); animation: aiPulseReady 2s infinite;"></div>
-      <div style="flex: 1;">
+      <div style="flex: 1; min-width: 0;">
         <div style="font-size: 14px; font-weight: 600; color: #1a1a1a;">Meeting Detected</div>
         <div style="font-size: 12px; color: #888; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">${escapeHtml(title || 'Active Call')}</div>
       </div>
-    <div style="font-size: 13px; color: #555; line-height: 1.4;">
+    </div>
+    <div style="font-size: 13px; color: #555; line-height: 1.5; margin-bottom: 12px;">
       Would you like to start the AI Notetaker to record and transcribe this meeting?
     </div>
-    <div style="display: flex; justify-content: flex-end; gap: 8px; margin-top: 4px;">
-      <button id="ai-btn-dismiss" style="background: #f2f0e9; border: 1px solid #e5e3d9; color: #666; padding: 8px 14px; border-radius: 4px; font-size: 12px; cursor: pointer; font-weight: 500;">
+    <div style="display: flex; justify-content: flex-end; gap: 8px;">
+      <button id="ai-btn-dismiss" style="background: #f2f0e9; border: 1px solid #e5e3d9; color: #666; padding: 8px 14px; border-radius: 6px; font-size: 12px; cursor: pointer; font-weight: 500; transition: all 0.2s;" onmouseover="this.style.background='#e5e3d9'" onmouseout="this.style.background='#f2f0e9'">
         Dismiss
       </button>
-      <button id="ai-btn-record" style="background: #2d2d2d; border: 1px solid #2d2d2d; color: #ffffff; padding: 8px 16px; border-radius: 4px; font-size: 12px; cursor: pointer; font-weight: 500;">
+      <button id="ai-btn-record" style="background: #2d2d2d; border: 1px solid #2d2d2d; color: #ffffff; padding: 8px 16px; border-radius: 6px; font-size: 12px; cursor: pointer; font-weight: 500; transition: all 0.2s;" onmouseover="this.style.background='#1a1a1a'" onmouseout="this.style.background='#2d2d2d'">
         Start Recording
       </button>
     </div>
