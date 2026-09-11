@@ -47,7 +47,7 @@ export const App: React.FC = () => {
   }
 
   return (
-    <div className="flex flex-col min-h-[560px] bg-[#fdfcf9] text-[#2d2d2d]">
+    <div className="flex flex-col w-full max-w-[420px] mx-auto min-h-screen sm:min-h-[560px] bg-[#fdfcf9] text-[#2d2d2d] sm:shadow-2xl relative">
       {/* Header */}
       <header className="px-5 py-3.5 border-b border-[#e5e3d9] bg-[#fdfcf9] flex items-center justify-between sticky top-0 z-30">
         <div className="flex items-center gap-2.5">

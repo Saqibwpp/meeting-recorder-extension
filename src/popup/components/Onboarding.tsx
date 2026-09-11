@@ -22,8 +22,6 @@ export const Onboarding: React.FC<OnboardingProps> = ({ onComplete }) => {
   const [error, setError] = useState('');
 
   useEffect(() => {
-    // If they already have an API key and are logged into Firebase, we can advance steps
-    // For simplicity, we just rely on local state tracking.
     if (settings?.geminiApiKey) {
       setApiKey(settings.geminiApiKey);
     }
@@ -35,9 +33,19 @@ export const Onboarding: React.FC<OnboardingProps> = ({ onComplete }) => {
 
     const unsubscribe = auth.onAuthStateChanged((user) => {
       if (user && step === 1) {
-        setStep(2); // Auto advance if already logged in
+        if (settings?.geminiApiKey) {
+          setStep(3); // Auto jump to mic if auth and key are present
+        } else {
+          setStep(2); // Auto advance to step 2 if only logged in
+        }
       }
     });
+    
+    // Fallback if they are already on step 2 but have an API key saved
+    if (step === 2 && settings?.geminiApiKey && auth.currentUser) {
+      setStep(3);
+    }
+
     return () => unsubscribe();
   }, [settings, step]);
 
