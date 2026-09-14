@@ -16,7 +16,9 @@ const api = {
     ipcRenderer.invoke('merge-and-save-recording', videoBuffer, systemAudioPath, title),
   // For Windows or fallback: just save the video buffer
   saveRecording: (videoBuffer: ArrayBuffer, title: string): Promise<boolean> =>
-    ipcRenderer.invoke('save-recording', videoBuffer, title)
+    ipcRenderer.invoke('save-recording', videoBuffer, title),
+  // Seamless web browser login (Google/Email)
+  loginWithBrowser: (): Promise<string> => ipcRenderer.invoke('login-with-browser')
 }
 
 // Use `contextBridge` APIs to expose Electron APIs to

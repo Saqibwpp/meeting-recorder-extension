@@ -2,11 +2,10 @@
 <html>
   <head>
     <meta charset="UTF-8" />
-    <title>Electron</title>
-    <!-- https://developer.mozilla.org/en-US/docs/Web/HTTP/CSP -->
+    <title>Embrace AI - Desktop</title>
     <meta
       http-equiv="Content-Security-Policy"
-      content="default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; media-src 'self' blob:;"
+      content="default-src 'self'; script-src 'self' 'unsafe-inline' https://apis.google.com https://*.firebaseapp.com https://*.googleapis.com; connect-src 'self' https://*.googleapis.com https://*.firebaseapp.com https://*.firebaseio.com wss://*.firebaseio.com https://identitytoolkit.googleapis.com https://securetoken.googleapis.com http://localhost:* http://127.0.0.1:*; style-src 'self' 'unsafe-inline'; font-src 'self' data: https:; img-src 'self' data: https:; frame-src 'self' https://*.firebaseapp.com https://accounts.google.com; media-src 'self' blob:;"
     />
   </head>
 

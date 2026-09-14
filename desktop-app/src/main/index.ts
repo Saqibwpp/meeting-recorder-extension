@@ -5,6 +5,9 @@ import icon from '../../resources/icon.png?asset'
 import { ChildProcess, spawn } from 'child_process'
 import { unlink, writeFile } from 'fs/promises'
 import { tmpdir } from 'os'
+import http from 'http'
+import crypto from 'crypto'
+import { AddressInfo } from 'net'
 import ffmpeg from 'fluent-ffmpeg'
 import ffmpegPath from 'ffmpeg-static'
 import ffprobePath from 'ffprobe-static'
@@ -53,7 +56,33 @@ function createWindow(): void {
     mainWindow.show()
   })
 
+  // Strip 'Electron/...' from User Agent so Google OAuth does not block with 'disallowed_user_agent'
+  const customUserAgent = mainWindow.webContents.getUserAgent().replace(/Electron\/\S+ /, '')
+  mainWindow.webContents.setUserAgent(customUserAgent)
+
   mainWindow.webContents.setWindowOpenHandler((details) => {
+    // Firebase Auth opens 'about:blank' first, then redirects to Google / Firebase Auth
+    if (
+      details.url === 'about:blank' ||
+      details.url === '' ||
+      details.url.includes('firebaseapp.com') ||
+      details.url.includes('accounts.google.com') ||
+      details.url.includes('google.com')
+    ) {
+      return {
+        action: 'allow',
+        overrideBrowserWindowOptions: {
+          width: 500,
+          height: 650,
+          autoHideMenuBar: true,
+          webPreferences: {
+            nodeIntegration: false,
+            contextIsolation: true
+          }
+        }
+      }
+    }
+
     shell.openExternal(details.url)
     return { action: 'deny' }
   })
@@ -70,33 +99,130 @@ function createWindow(): void {
 // This method will be called when Electron has finished
 // initialization and is ready to create browser windows.
 // Some APIs can only be used after this event occurs.
-app.whenReady().then(() => {
+app.whenReady().then(async () => {
   // Set app user model id for windows
   electronApp.setAppUserModelId('com.electron')
 
+  // Set defaultSession User-Agent to standard Chrome (remove Electron/...)
+  const { session, desktopCapturer } = await import('electron')
+  const defaultUA = session.defaultSession.getUserAgent().replace(/Electron\/\S+ /, '')
+  session.defaultSession.setUserAgent(defaultUA)
+
   // Handle getDisplayMedia requests — screen video + loopback audio (Windows fallback)
-  import('electron').then(({ session, desktopCapturer }) => {
-    session.defaultSession.setDisplayMediaRequestHandler((_request, callback) => {
-      desktopCapturer
-        .getSources({ types: ['screen'] })
-        .then((sources) => {
-          if (sources.length > 0) {
-            if (process.platform === 'darwin') {
-              // On macOS, only capture video — system audio is handled by Swift
-              callback({ video: sources[0] })
-            } else {
-              // On Windows, use loopback for system audio (WASAPI works fine)
-              callback({ video: sources[0], audio: 'loopback' })
-            }
+  session.defaultSession.setDisplayMediaRequestHandler((_request, callback) => {
+    desktopCapturer
+      .getSources({ types: ['screen'] })
+      .then((sources) => {
+        if (sources.length > 0) {
+          if (process.platform === 'darwin') {
+            // On macOS, only capture video — system audio is handled by Swift
+            callback({ video: sources[0] })
+          } else {
+            // On Windows, use loopback for system audio (WASAPI works fine)
+            callback({ video: sources[0], audio: 'loopback' })
           }
-        })
-        .catch((err) => {
-          console.error('Error getting screen sources:', err)
-        })
-    })
+        }
+      })
+      .catch((err) => {
+        console.error('Error getting screen sources:', err)
+      })
   })
 
-  // --- IPC Handlers for Swift System Audio Capture ---
+  // --- IPC Handlers for Authentication & System Capture ---
+
+  // Starts a local HTTP loopback server and opens web browser for Google/Email auth
+  ipcMain.handle('login-with-browser', async () => {
+    const webBaseUrl = process.env.VITE_API_BASE_URL || 'http://localhost:3000'
+    const expectedState = crypto.randomBytes(16).toString('hex')
+
+    return new Promise<string>((resolve, reject) => {
+      let server: http.Server | null = null
+
+      const timeout = setTimeout(
+        () => {
+          if (server) {
+            server.close()
+          }
+          reject(new Error('Authentication timed out. Please try again.'))
+        },
+        5 * 60 * 1000
+      )
+
+      server = http.createServer((req, res) => {
+        try {
+          const reqUrl = new URL(req.url || '', `http://${req.headers.host}`)
+          if (reqUrl.pathname === '/callback') {
+            const token = reqUrl.searchParams.get('token')
+            const state = reqUrl.searchParams.get('state')
+
+            if (state !== expectedState) {
+              res.writeHead(400, { 'Content-Type': 'text/plain' })
+              res.end('Invalid authentication state.')
+              return
+            }
+
+            if (!token) {
+              res.writeHead(400, { 'Content-Type': 'text/plain' })
+              res.end('Missing token.')
+              return
+            }
+
+            res.writeHead(200, {
+              'Content-Type': 'text/html; charset=utf-8',
+              'Access-Control-Allow-Origin': '*'
+            })
+            res.end(`
+              <!DOCTYPE html>
+              <html>
+                <head>
+                  <title>Connected</title>
+                  <style>
+                    body { font-family: -apple-system, sans-serif; background: #faf9f6; display: flex; align-items: center; justify-content: center; height: 100vh; margin: 0; color: #1a1a1a; }
+                    .card { background: white; padding: 32px; border-radius: 12px; border: 1px solid #e2e0d8; text-align: center; max-width: 400px; box-shadow: 0 4px 20px -4px rgba(0,0,0,0.05); }
+                    h2 { margin-top: 0; }
+                    p { color: #737373; font-size: 14px; }
+                  </style>
+                </head>
+                <body>
+                  <div class="card">
+                    <h2>✓ Logged In Successfully</h2>
+                    <p>You can close this window and return to Embrace AI Desktop.</p>
+                  </div>
+                </body>
+              </html>
+            `)
+
+            clearTimeout(timeout)
+            resolve(token)
+
+            setTimeout(() => {
+              server?.close()
+            }, 1000)
+          } else {
+            res.writeHead(404)
+            res.end()
+          }
+        } catch (err) {
+          console.error('[Main] Loopback server error:', err)
+          res.writeHead(500)
+          res.end()
+        }
+      })
+
+      server.listen(0, '127.0.0.1', () => {
+        const address = server?.address() as AddressInfo
+        const port = address.port
+        const authUrl = `${webBaseUrl}/desktop-login?port=${port}&state=${expectedState}`
+        console.log(`[Main] Launching external browser login: ${authUrl}`)
+        shell.openExternal(authUrl)
+      })
+
+      server.on('error', (err) => {
+        clearTimeout(timeout)
+        reject(err)
+      })
+    })
+  })
 
   // Returns the platform so the renderer knows whether to use Swift or loopback
   ipcMain.handle('get-platform', () => {

@@ -13,6 +13,7 @@ declare global {
         title: string
       ) => Promise<boolean>
       saveRecording: (videoBuffer: ArrayBuffer, title: string) => Promise<boolean>
+      loginWithBrowser: () => Promise<string>
     }
   }
 }
