@@ -1,5 +1,6 @@
 import { useQuery, UseQueryResult } from '@tanstack/react-query'
-import axios, { AxiosError } from 'axios'
+import api from '../../../lib/api'
+import { AxiosError } from 'axios'
 import { useAuth } from '../../auth/hooks/useAuth'
 import { Meeting, normalizeMeeting } from './useMeetings'
 
@@ -11,16 +12,8 @@ export const useMeeting = (meetingId?: string): UseQueryResult<Meeting | null, E
     queryFn: async () => {
       if (!meetingId || !user) return null
 
-      const token = await user.getIdToken()
       try {
-        const res = await axios.get(
-          `${import.meta.env.VITE_BACKEND_URL}/api/meetings?id=${meetingId}`,
-          {
-            headers: {
-              Authorization: `Bearer ${token}`
-            }
-          }
-        )
+        const res = await api.get(`/api/meetings?id=${meetingId}`)
         if (!res.data.meeting) return null
         return normalizeMeeting(res.data.meeting as Record<string, unknown>)
       } catch (error) {

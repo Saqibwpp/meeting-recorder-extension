@@ -1,5 +1,5 @@
 import { useQuery, UseQueryResult } from '@tanstack/react-query'
-import axios from 'axios'
+import api from '../../../lib/api'
 import { useAuth } from '../../auth/hooks/useAuth'
 
 export interface TranscriptSegment {
@@ -84,12 +84,7 @@ export const useMeetings = (): UseQueryResult<Meeting[], Error> => {
     queryFn: async () => {
       if (!user) return []
 
-      const token = await user.getIdToken()
-      const res = await axios.get(`${import.meta.env.VITE_BACKEND_URL}/api/meetings`, {
-        headers: {
-          Authorization: `Bearer ${token}`
-        }
-      })
+      const res = await api.get('/api/meetings')
 
       const rawList = (res.data.meetings || []) as Record<string, unknown>[]
       const fetchedMeetings = rawList.map(normalizeMeeting)

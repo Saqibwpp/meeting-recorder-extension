@@ -1,5 +1,5 @@
 import { useMutation, useQueryClient } from '@tanstack/react-query'
-import axios from 'axios'
+import api from '../../../lib/api'
 import { useAuth } from '../../auth/hooks/useAuth'
 import { useApiKey } from '../../../hooks/useApiKey'
 
@@ -29,14 +29,8 @@ export function useRetryTranscription(): UseRetryTranscriptionReturn {
       if (!user) throw new Error('Not authenticated')
       if (!apiKey) throw new Error('No API key configured. Go to Settings to add one.')
 
-      const token = await user.getIdToken()
-
       // 1. Set status to processing
-      await axios.patch(
-        `${import.meta.env.VITE_BACKEND_URL}/api/meetings`,
-        { id: meetingId, status: 'processing' },
-        { headers: { Authorization: `Bearer ${token}` } }
-      )
+      await api.patch('/api/meetings', { id: meetingId, status: 'processing' })
 
       // 2. Call Gemini via IPC
       const transcript = (await window.api.transcribeAudio(
@@ -47,26 +41,17 @@ export function useRetryTranscription(): UseRetryTranscriptionReturn {
       )) as Record<string, unknown>
 
       // 3. Save success
-      await axios.patch(
-        `${import.meta.env.VITE_BACKEND_URL}/api/meetings`,
-        { id: meetingId, ...transcript, status: 'completed' },
-        { headers: { Authorization: `Bearer ${token}` } }
-      )
+      await api.patch('/api/meetings', { id: meetingId, ...transcript, status: 'completed' })
     },
     onError: async (_error, { meetingId }) => {
       // PATCH status: error
       if (!user) return
       try {
-        const token = await user.getIdToken()
-        await axios.patch(
-          `${import.meta.env.VITE_BACKEND_URL}/api/meetings`,
-          {
-            id: meetingId,
-            status: 'error',
-            errorMessage: _error.message
-          },
-          { headers: { Authorization: `Bearer ${token}` } }
-        )
+        await api.patch('/api/meetings', {
+          id: meetingId,
+          status: 'error',
+          errorMessage: _error.message
+        })
       } catch (patchErr) {
         console.error('Failed to update error status:', patchErr)
       }

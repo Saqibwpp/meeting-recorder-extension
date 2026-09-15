@@ -1,5 +1,4 @@
-import { auth } from '../../../lib/firebase'
-import axios from 'axios'
+import api from '../../../lib/api'
 import { useState, useRef, useEffect } from 'react'
 import { useQueryClient } from '@tanstack/react-query'
 import { useApiKey } from '../../../hooks/useApiKey'
@@ -134,28 +133,22 @@ export function useMediaRecorder(): MediaRecorderState {
           audioPath: string
         }): Promise<void> => {
           console.log('[useMediaRecorder] Saved to:', paths)
-          const user = auth.currentUser
-          const token = user ? await user.getIdToken() : ''
           const meetingId = `meeting_${Date.now()}`
           let backendDocId = meetingId
 
           try {
             // 1. POST to backend (status: processing)
-            const res = await axios.post(
-              `${import.meta.env.VITE_BACKEND_URL}/api/meetings`,
-              {
-                id: meetingId,
-                title,
-                status: 'processing',
-                videoPath: paths.videoPath,
-                audioPath: paths.audioPath,
-                durationSeconds,
-                startTime: startTimeRef.current,
-                date: new Date().toISOString(),
-                createdAt: new Date().toISOString()
-              },
-              { headers: { ...(token && { Authorization: `Bearer ${token}` }) } }
-            )
+            const res = await api.post('/api/meetings', {
+              id: meetingId,
+              title,
+              status: 'processing',
+              videoPath: paths.videoPath,
+              audioPath: paths.audioPath,
+              durationSeconds,
+              startTime: startTimeRef.current,
+              date: new Date().toISOString(),
+              createdAt: new Date().toISOString()
+            })
             backendDocId = res.data?.id || meetingId
             console.log('[useMediaRecorder] Created processing doc:', backendDocId)
             queryClient.invalidateQueries({ queryKey: ['meetings'] })
@@ -180,16 +173,12 @@ export function useMediaRecorder(): MediaRecorderState {
 
               // 2. PATCH to backend (status: completed)
               if (backendDocId) {
-                await axios.patch(
-                  `${import.meta.env.VITE_BACKEND_URL}/api/meetings`,
-                  {
-                    id: backendDocId,
-                    ...transcript,
-                    durationSeconds,
-                    status: 'completed'
-                  },
-                  { headers: { ...(token && { Authorization: `Bearer ${token}` }) } }
-                )
+                await api.patch('/api/meetings', {
+                  id: backendDocId,
+                  ...transcript,
+                  durationSeconds,
+                  status: 'completed'
+                })
                 queryClient.invalidateQueries({ queryKey: ['meetings'] })
                 queryClient.invalidateQueries({ queryKey: ['meeting', backendDocId] })
               }
@@ -197,15 +186,11 @@ export function useMediaRecorder(): MediaRecorderState {
               console.error('[useMediaRecorder] Transcription failed:', err)
               // PATCH status: error
               if (backendDocId) {
-                await axios.patch(
-                  `${import.meta.env.VITE_BACKEND_URL}/api/meetings`,
-                  {
-                    id: backendDocId,
-                    status: 'error',
-                    errorMessage: err instanceof Error ? err.message : 'Unknown error'
-                  },
-                  { headers: { ...(token && { Authorization: `Bearer ${token}` }) } }
-                )
+                await api.patch('/api/meetings', {
+                  id: backendDocId,
+                  status: 'error',
+                  errorMessage: err instanceof Error ? err.message : 'Unknown error'
+                })
                 queryClient.invalidateQueries({ queryKey: ['meetings'] })
                 queryClient.invalidateQueries({ queryKey: ['meeting', backendDocId] })
               }
