@@ -79,10 +79,12 @@ function createMainWindow(): void {
 
   mainWindow.on('ready-to-show', () => {
     mainWindow?.show()
+    if (app.dock) app.dock.show()
   })
 
   mainWindow.on('closed', () => {
     mainWindow = null
+    if (app.dock) app.dock.hide()
   })
 
   // Strip 'Electron/...' from User Agent so Google OAuth does not block with 'disallowed_user_agent'

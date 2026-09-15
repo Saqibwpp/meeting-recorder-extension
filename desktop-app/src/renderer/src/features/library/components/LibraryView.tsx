@@ -35,7 +35,7 @@ export const LibraryView: React.FC = () => {
   }
 
   return (
-    <div className="p-8 max-w-6xl mx-auto w-full h-full overflow-y-auto">
+    <div className="p-8 w-full h-full overflow-y-auto">
       <div className="mb-8">
         <h1 className="text-2xl font-semibold text-[#1a1a1a] tracking-tight">Your Library</h1>
         <p className="text-[#737373] mt-1 text-sm">All your recorded meetings and transcripts</p>
@@ -68,7 +68,17 @@ export const LibraryView: React.FC = () => {
               className="group bg-white border border-[#e2e0d8] rounded-xl overflow-hidden hover:shadow-lg hover:border-[#d0cece] transition-all cursor-pointer flex flex-col"
             >
               <div className="aspect-video bg-[#1a1a1a] relative flex items-center justify-center overflow-hidden">
-                <Video className="w-10 h-10 text-white/20 group-hover:scale-110 transition-transform duration-300" />
+                {meeting.videoPath ? (
+                  <video
+                    src={`local://${meeting.videoPath}#t=0.1`}
+                    className="absolute inset-0 w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
+                    preload="metadata"
+                    muted
+                    playsInline
+                  />
+                ) : (
+                  <Video className="w-10 h-10 text-white/20 group-hover:scale-110 transition-transform duration-300" />
+                )}
                 <div className="absolute inset-0 bg-gradient-to-t from-black/60 to-transparent opacity-0 group-hover:opacity-100 transition-opacity" />
 
                 {/* Status Badges */}
