@@ -43,7 +43,9 @@ export const LoginForm: React.FC<LoginFormProps> = ({ onToggleMode }) => {
     } catch (err: unknown) {
       if (err instanceof Error) {
         if (err.message.includes('auth/invalid-credential')) {
-          setError('Invalid email or password. If you signed up with Google, please use the "Sign in with Google" button above.')
+          setError(
+            'Invalid email or password. If you signed up with Google, please use the "Sign in with Google" button above.'
+          )
         } else {
           setError(err.message.replace('Firebase: ', ''))
         }

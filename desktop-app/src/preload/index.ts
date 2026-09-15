@@ -12,13 +12,29 @@ const api = {
     videoBuffer: ArrayBuffer,
     systemAudioPath: string,
     title: string
-  ): Promise<boolean> =>
+  ): Promise<{ videoPath: string; audioPath: string } | false> =>
     ipcRenderer.invoke('merge-and-save-recording', videoBuffer, systemAudioPath, title),
   // For Windows or fallback: just save the video buffer
-  saveRecording: (videoBuffer: ArrayBuffer, title: string): Promise<boolean> =>
+  saveRecording: (
+    videoBuffer: ArrayBuffer,
+    title: string
+  ): Promise<{ videoPath: string; audioPath: string } | false> =>
     ipcRenderer.invoke('save-recording', videoBuffer, title),
   // Seamless web browser login (Google/Email)
-  loginWithBrowser: (): Promise<string> => ipcRenderer.invoke('login-with-browser')
+  loginWithBrowser: (): Promise<string> => ipcRenderer.invoke('login-with-browser'),
+  // Transcribe audio using Gemini
+  transcribeAudio: (
+    audioPath: string,
+    apiKey: string,
+    title: string,
+    modelName?: string
+  ): Promise<unknown> =>
+    ipcRenderer.invoke('transcribe-audio', audioPath, apiKey, title, modelName),
+  // Fetch available Gemini models
+  getGeminiModels: (
+    apiKey: string
+  ): Promise<{ name: string; displayName: string; description: string }[]> =>
+    ipcRenderer.invoke('get-gemini-models', apiKey)
 }
 
 // Use `contextBridge` APIs to expose Electron APIs to

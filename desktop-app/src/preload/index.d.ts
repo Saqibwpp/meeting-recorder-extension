@@ -11,9 +11,27 @@ declare global {
         videoBuffer: ArrayBuffer,
         systemAudioPath: string,
         title: string
-      ) => Promise<boolean>
-      saveRecording: (videoBuffer: ArrayBuffer, title: string) => Promise<boolean>
+      ) => Promise<{ videoPath: string; audioPath: string } | false>
+      saveRecording: (
+        videoBuffer: ArrayBuffer,
+        title: string
+      ) => Promise<{ videoPath: string; audioPath: string } | false>
       loginWithBrowser: () => Promise<string>
+      transcribeAudio: (
+        audioPath: string,
+        apiKey: string,
+        title: string,
+        modelName?: string
+      ) => Promise<unknown>
+      getGeminiModels: (apiKey: string) => Promise<
+        {
+          name: string
+          displayName: string
+          description: string
+          inputTokenLimit: number
+          outputTokenLimit: number
+        }[]
+      >
     }
   }
 }

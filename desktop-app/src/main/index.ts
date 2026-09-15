@@ -1,4 +1,4 @@
-import { app, shell, BrowserWindow, ipcMain, dialog } from 'electron'
+import { app, shell, BrowserWindow, ipcMain, Tray, nativeImage, protocol } from 'electron'
 import { join } from 'path'
 import { electronApp, optimizer, is } from '@electron-toolkit/utils'
 import icon from '../../resources/icon.png?asset'
@@ -11,6 +11,10 @@ import { AddressInfo } from 'net'
 import ffmpeg from 'fluent-ffmpeg'
 import ffmpegPath from 'ffmpeg-static'
 import ffprobePath from 'ffprobe-static'
+
+// ==========================================
+// 1. SETUP & GLOBALS
+// ==========================================
 
 // Set the ffmpeg and ffprobe paths for fluent-ffmpeg
 if (ffmpegPath) {
@@ -29,6 +33,15 @@ if (ffprobePath.path) {
 let swiftProcess: ChildProcess | null = null
 let systemAudioPath: string | null = null
 
+// Register local scheme as privileged (must be before app is ready)
+protocol.registerSchemesAsPrivileged([
+  { scheme: 'local', privileges: { supportFetchAPI: true, bypassCSP: true, stream: true } }
+])
+
+let mainWindow: BrowserWindow | null = null
+let trayWindow: BrowserWindow | null = null
+let tray: Tray | null = null
+
 function getSwiftBinaryPath(): string {
   if (is.dev) {
     // During development, use the locally compiled binary
@@ -38,13 +51,25 @@ function getSwiftBinaryPath(): string {
   return join(process.resourcesPath, 'AudioCapture')
 }
 
-function createWindow(): void {
+// ==========================================
+// 2. MAIN WINDOW MANAGEMENT
+// ==========================================
+
+function createMainWindow(): void {
+  if (mainWindow) {
+    if (mainWindow.isMinimized()) mainWindow.restore()
+    mainWindow.show()
+    mainWindow.focus()
+    return
+  }
+
   // Create the browser window.
-  const mainWindow = new BrowserWindow({
+  mainWindow = new BrowserWindow({
     width: 900,
     height: 670,
     show: false,
     autoHideMenuBar: true,
+    titleBarStyle: 'hidden',
     ...(process.platform === 'linux' ? { icon } : {}),
     webPreferences: {
       preload: join(__dirname, '../preload/index.js'),
@@ -53,7 +78,11 @@ function createWindow(): void {
   })
 
   mainWindow.on('ready-to-show', () => {
-    mainWindow.show()
+    mainWindow?.show()
+  })
+
+  mainWindow.on('closed', () => {
+    mainWindow = null
   })
 
   // Strip 'Electron/...' from User Agent so Google OAuth does not block with 'disallowed_user_agent'
@@ -90,11 +119,85 @@ function createWindow(): void {
   // HMR for renderer base on electron-vite cli.
   // Load the remote URL for development or the local html file for production.
   if (is.dev && process.env['ELECTRON_RENDERER_URL']) {
-    mainWindow.loadURL(process.env['ELECTRON_RENDERER_URL'])
+    mainWindow.loadURL(process.env['ELECTRON_RENDERER_URL'] + '#/')
   } else {
-    mainWindow.loadFile(join(__dirname, '../renderer/index.html'))
+    mainWindow.loadFile(join(__dirname, '../renderer/index.html'), { hash: '/' })
   }
 }
+
+// ==========================================
+// 3. TRAY WINDOW MANAGEMENT (MENU BAR APP)
+// ==========================================
+
+function createTrayWindow(): void {
+  trayWindow = new BrowserWindow({
+    width: 320,
+    height: 480,
+    show: false,
+    frame: false,
+    resizable: false,
+    transparent: true,
+    alwaysOnTop: true,
+    webPreferences: {
+      preload: join(__dirname, '../preload/index.js'),
+      sandbox: false
+    }
+  })
+
+  // Hide the window when it loses focus
+  trayWindow.on('blur', () => {
+    if (!trayWindow?.webContents.isDevToolsOpened()) {
+      trayWindow?.hide()
+    }
+  })
+
+  if (is.dev && process.env['ELECTRON_RENDERER_URL']) {
+    trayWindow.loadURL(process.env['ELECTRON_RENDERER_URL'] + '#/tray')
+  } else {
+    trayWindow.loadFile(join(__dirname, '../renderer/index.html'), { hash: '/tray' })
+  }
+}
+
+function toggleTrayWindow(): void {
+  if (!tray || !trayWindow) return
+
+  if (trayWindow.isVisible()) {
+    trayWindow.hide()
+  } else {
+    const trayBounds = tray.getBounds()
+    const windowBounds = trayWindow.getBounds()
+
+    // Center window horizontally relative to the tray icon
+    const x = Math.round(trayBounds.x + trayBounds.width / 2 - windowBounds.width / 2)
+
+    let y: number
+    if (process.platform === 'win32') {
+      // On Windows, the tray is usually at the bottom. Position window ABOVE the tray.
+      y = Math.round(trayBounds.y - windowBounds.height)
+    } else {
+      // On macOS, the tray is at the top. Position window BELOW the tray.
+      y = Math.round(trayBounds.y + trayBounds.height)
+    }
+
+    trayWindow.setPosition(x, y, false)
+    trayWindow.show()
+    trayWindow.focus()
+  }
+}
+
+function createTray(): void {
+  const trayIcon = nativeImage.createFromPath(icon).resize({ width: 16, height: 16 })
+  tray = new Tray(trayIcon)
+  tray.setToolTip('Embrace AI')
+
+  tray.on('click', () => {
+    toggleTrayWindow()
+  })
+}
+
+// ==========================================
+// 4. APP INITIALIZATION
+// ==========================================
 
 // This method will be called when Electron has finished
 // initialization and is ready to create browser windows.
@@ -104,9 +207,14 @@ app.whenReady().then(async () => {
   electronApp.setAppUserModelId('com.electron')
 
   // Set defaultSession User-Agent to standard Chrome (remove Electron/...)
-  const { session, desktopCapturer } = await import('electron')
+  const { session, desktopCapturer, protocol, net } = await import('electron')
   const defaultUA = session.defaultSession.getUserAgent().replace(/Electron\/\S+ /, '')
   session.defaultSession.setUserAgent(defaultUA)
+
+  // Register local:// protocol to allow loading local files securely
+  protocol.handle('local', (request) => {
+    return net.fetch('file://' + request.url.slice('local://'.length))
+  })
 
   // Handle getDisplayMedia requests — screen video + loopback audio (Windows fallback)
   session.defaultSession.setDisplayMediaRequestHandler((_request, callback) => {
@@ -128,7 +236,41 @@ app.whenReady().then(async () => {
       })
   })
 
-  // --- IPC Handlers for Authentication & System Capture ---
+  // ==========================================
+  // 5. IPC HANDLERS: AUTHENTICATION & AI
+  // ==========================================
+
+  ipcMain.handle(
+    'transcribe-audio',
+    async (_event, audioPath: string, apiKey: string, title: string, modelName?: string) => {
+      try {
+        console.log('[Main] Reading audio file for transcription:', audioPath)
+        const fs = await import('fs/promises')
+        const fileBuffer = await fs.readFile(audioPath)
+        const base64Audio = fileBuffer.toString('base64')
+
+        console.log('[Main] Calling Gemini API...')
+        const { transcribeAudioFile } = await import('./services/gemini')
+        const transcript = await transcribeAudioFile(base64Audio, apiKey, title, modelName)
+        return transcript
+      } catch (err: unknown) {
+        console.error('[Main] Transcription error:', err)
+        throw err
+      }
+    }
+  )
+
+  ipcMain.handle('get-gemini-models', async (_event, apiKey: string) => {
+    try {
+      const { fetchAvailableModels } = await import('./services/gemini')
+      return await fetchAvailableModels(apiKey)
+    } catch (err: unknown) {
+      if (err instanceof Error) {
+        throw new Error(`Failed to fetch models: ${err.message}`)
+      }
+      throw new Error('Failed to fetch models')
+    }
+  })
 
   // Starts a local HTTP loopback server and opens web browser for Google/Email auth
   ipcMain.handle('login-with-browser', async () => {
@@ -224,6 +366,10 @@ app.whenReady().then(async () => {
     })
   })
 
+  // ==========================================
+  // 6. IPC HANDLERS: AUDIO CAPTURE & RECORDING
+  // ==========================================
+
   // Returns the platform so the renderer knows whether to use Swift or loopback
   ipcMain.handle('get-platform', () => {
     return process.platform
@@ -293,25 +439,32 @@ app.whenReady().then(async () => {
     'merge-and-save-recording',
     async (_event, videoBuffer: ArrayBuffer, sysAudioPath: string, title: string) => {
       try {
-        // Prompt user for save location
-        const { canceled, filePath } = await dialog.showSaveDialog({
-          title: 'Save Recording',
-          defaultPath: `${title.replace(/\s+/g, '_')}_Recording.webm`,
-          filters: [{ name: 'WebM Video', extensions: ['webm'] }]
-        })
+        // -------------------------------------------------------------
+        // LOCATION: WHERE DO WE SAVE FILES?
+        // We cannot save user files inside the application folder
+        // (e.g. /Applications or C:\Program Files) because modern OS's
+        // strictly enforce these folders as READ-ONLY to prevent malware.
+        // Therefore, we use the industry standard `app.getPath('documents')`
+        // to save videos safely in the user's `~/Documents/Embrace AI` folder.
+        // -------------------------------------------------------------
+        const docsPath = app.getPath('documents')
+        const appDir = join(docsPath, 'Embrace AI')
 
-        if (canceled || !filePath) {
-          return false
-        }
+        // Ensure the directory exists
+        const fs = await import('fs/promises')
+        await fs.mkdir(appDir, { recursive: true })
 
-        // Write video buffer to a temp file
+        const safeTitle = title.replace(/\s+/g, '_').replace(/[^a-zA-Z0-9_]/g, '')
+        const filePath = join(appDir, `${safeTitle}_${Date.now()}.webm`)
+
+        // Write video buffer (which contains mic audio) to a temp file
         const videoPath = join(tmpdir(), `video-mic-${Date.now()}.webm`)
         await writeFile(videoPath, Buffer.from(videoBuffer))
 
         console.log('[Main] Starting FFmpeg merge...')
 
         // Probe the video file to see if it has an audio track (e.g. mic was selected)
-        return new Promise<boolean>((resolve, reject) => {
+        return new Promise<{ videoPath: string; audioPath: string } | false>((resolve, reject) => {
           ffmpeg.ffprobe(videoPath, (err, metadata) => {
             if (err) {
               console.error('[Main] Error probing video file:', err)
@@ -322,15 +475,21 @@ app.whenReady().then(async () => {
             const hasAudio = metadata.streams.some((s) => s.codec_type === 'audio')
             console.log(`[Main] Video has audio track: ${hasAudio}`)
 
+            // -------------------------------------------------------------
+            // AUDIO MERGING LOGIC
+            // Input 0: `videoPath` (Screen Recording + Microphone Audio)
+            // Input 1: `sysAudioPath` (System Audio from Swift binary)
+            // -------------------------------------------------------------
             let command = ffmpeg().input(videoPath).input(sysAudioPath)
 
             if (hasAudio) {
               // Mix the audio from both inputs, keep the video from the first input
+              // `[0:a][1:a]amix=inputs=2` perfectly merges the mic and system audio!
               command = command
                 .complexFilter(['[0:a][1:a]amix=inputs=2:duration=first:dropout_transition=3[a]'])
                 .outputOptions([
                   '-map 0:v', // Take video from first input
-                  '-map [a]', // Take mixed audio
+                  '-map [a]', // Take the perfectly mixed audio
                   '-c:v copy', // Do not re-encode video (instant copy)
                   '-c:a libopus', // Re-encode mixed audio to Opus (WebM compatible)
                   '-b:a 128k'
@@ -354,7 +513,24 @@ app.whenReady().then(async () => {
                 // Cleanup temp files
                 await unlink(videoPath).catch(() => {})
                 await unlink(sysAudioPath).catch(() => {})
-                resolve(true)
+
+                const audioPath = join(appDir, `${safeTitle}_${Date.now()}.m4a`)
+                console.log('[Main] Starting audio extraction...')
+
+                ffmpeg(filePath)
+                  .output(audioPath)
+                  .noVideo()
+                  .audioCodec('aac')
+                  .audioBitrate('128k')
+                  .on('end', () => {
+                    console.log('[Main] Audio extraction complete ->', audioPath)
+                    resolve({ videoPath: filePath, audioPath })
+                  })
+                  .on('error', (err) => {
+                    console.error('[Main] Audio extraction error:', err)
+                    resolve({ videoPath: filePath, audioPath: '' })
+                  })
+                  .run()
               })
               .on('error', async (err, stdout, stderr) => {
                 console.error('[Main] FFmpeg merge error:', err.message)
@@ -367,7 +543,7 @@ app.whenReady().then(async () => {
                 // Fallback: write the raw video buffer directly to the file path
                 console.log('[Main] Falling back to saving unmerged video...')
                 await writeFile(filePath, Buffer.from(videoBuffer)).catch(() => {})
-                resolve(false) // resolve false to indicate fallback occurred
+                resolve(false) // resolve false to indicate fallback occurred (or maybe we should resolve filePath here too, but for now we leave as is or return false)
               })
           })
         })
@@ -381,16 +557,46 @@ app.whenReady().then(async () => {
   // Fallback for saving just the video buffer (e.g. on Windows)
   ipcMain.handle('save-recording', async (_event, videoBuffer: ArrayBuffer, title: string) => {
     try {
-      const { canceled, filePath } = await dialog.showSaveDialog({
-        title: 'Save Recording',
-        defaultPath: `${title.replace(/\s+/g, '_')}_Recording.webm`,
-        filters: [{ name: 'WebM Video', extensions: ['webm'] }]
+      // -------------------------------------------------------------
+      // LOCATION: WHERE DO WE SAVE FILES?
+      // We cannot save user files inside the application folder
+      // (e.g. /Applications or C:\Program Files) because modern OS's
+      // strictly enforce these folders as READ-ONLY to prevent malware.
+      // Therefore, we use the industry standard `app.getPath('documents')`
+      // to save videos safely in the user's `~/Documents/Embrace AI` folder.
+      // -------------------------------------------------------------
+      const docsPath = app.getPath('documents')
+      const appDir = join(docsPath, 'Embrace AI')
+
+      // Ensure the directory exists
+      await import('fs/promises').then((fs) => fs.mkdir(appDir, { recursive: true }))
+
+      const safeTitle = title.replace(/\s+/g, '_').replace(/[^a-zA-Z0-9_]/g, '')
+      const timestamp = Date.now()
+      const videoPath = join(appDir, `${safeTitle}_${timestamp}.webm`)
+      const audioPath = join(appDir, `${safeTitle}_${timestamp}.m4a`)
+
+      await writeFile(videoPath, Buffer.from(videoBuffer))
+      console.log('[Main] Saved video directly to:', videoPath)
+
+      // Extract audio for transcription
+      return new Promise<{ videoPath: string; audioPath: string } | false>((resolve) => {
+        ffmpeg(videoPath)
+          .output(audioPath)
+          .noVideo()
+          .audioCodec('aac')
+          .audioBitrate('128k')
+          .on('end', () => {
+            console.log('[Main] Audio extraction complete ->', audioPath)
+            resolve({ videoPath, audioPath })
+          })
+          .on('error', (err) => {
+            console.error('[Main] Audio extraction error:', err)
+            // Even if audio extraction fails, we still saved the video
+            resolve({ videoPath, audioPath: '' })
+          })
+          .run()
       })
-
-      if (canceled || !filePath) return false
-
-      await writeFile(filePath, Buffer.from(videoBuffer))
-      return true
     } catch (err) {
       console.error('[Main] Error in save-recording:', err)
       return false
@@ -407,14 +613,37 @@ app.whenReady().then(async () => {
   // IPC test
   ipcMain.on('ping', () => console.log('pong'))
 
-  createWindow()
+  ipcMain.on('open-main-window', () => {
+    createMainWindow()
+    if (trayWindow?.isVisible()) {
+      trayWindow.hide()
+    }
+  })
+
+  ipcMain.on('quit-app', () => {
+    app.quit()
+  })
+
+  // We hide the dock icon so it behaves strictly like a tray app by default
+  if (app.dock) app.dock.hide()
+
+  createTray()
+  createTrayWindow()
+
+  // Create main window but it's hidden by default, or you can just wait for 'open-main-window'
+  // Let's create it so it's ready.
+  // Actually, we can just let 'open-main-window' create it if needed.
 
   app.on('activate', function () {
     // On macOS it's common to re-create a window in the app when the
     // dock icon is clicked and there are no other windows open.
-    if (BrowserWindow.getAllWindows().length === 0) createWindow()
+    if (!mainWindow) createMainWindow()
   })
 })
+
+// ==========================================
+// 7. APP LIFECYCLE & CLEANUP
+// ==========================================
 
 // Quit when all windows are closed, except on macOS. There, it's common
 // for applications and their menu bar to stay active until the user quits

@@ -5,12 +5,14 @@ import { NextResponse } from 'next/server';
  */
 export function getCorsHeaders(
   request: Request,
-  allowedMethods = 'GET, POST, DELETE, OPTIONS'
+  allowedMethods = 'GET, POST, DELETE, PATCH, OPTIONS'
 ): Record<string, string> {
   const origin = request.headers.get('origin') || '';
   const isAllowed =
     origin.startsWith('chrome-extension://') ||
     origin.startsWith('http://localhost') ||
+    origin.startsWith('file://') ||
+    origin.startsWith('app://') ||
     origin === 'https://meeting-recorder-extension.vercel.app';
 
   return {
@@ -25,7 +27,7 @@ export function getCorsHeaders(
  */
 export function handleOptions(
   request: Request,
-  allowedMethods = 'GET, POST, DELETE, OPTIONS'
+  allowedMethods = 'GET, POST, DELETE, PATCH, OPTIONS'
 ): NextResponse {
   return new NextResponse(null, {
     status: 204,

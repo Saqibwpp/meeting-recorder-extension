@@ -1,4 +1,8 @@
+import { auth } from '../../../lib/firebase'
+import axios from 'axios'
 import { useState, useRef, useEffect } from 'react'
+import { useQueryClient } from '@tanstack/react-query'
+import { useApiKey } from '../../../hooks/useApiKey'
 
 export interface MediaRecorderState {
   isRecording: boolean
@@ -6,11 +10,13 @@ export interface MediaRecorderState {
   error: string | null
   setError: React.Dispatch<React.SetStateAction<string | null>>
   platform: string
-  startRecording: (title: string, selectedMicId: string) => Promise<void>
+  startRecording: (title: string, selectedMicId: string, modelName: string) => Promise<void>
   stopRecording: () => void
 }
 
 export function useMediaRecorder(): MediaRecorderState {
+  const queryClient = useQueryClient()
+  const { apiKey } = useApiKey()
   const [isRecording, setIsRecording] = useState(false)
   const [isProcessing, setIsProcessing] = useState(false)
   const [error, setError] = useState<string | null>(null)
@@ -20,16 +26,32 @@ export function useMediaRecorder(): MediaRecorderState {
   const chunksRef = useRef<Blob[]>([])
   const audioContextRef = useRef<AudioContext | null>(null)
   const allTracksRef = useRef<MediaStreamTrack[]>([])
+  const startTimeRef = useRef<number>(0)
+  const selectedModelRef = useRef<string>('')
+  const apiKeyRef = useRef<string>('')
+  const platformInitialized = useRef(false)
 
+  // Initialize platform once
   useEffect(() => {
-    window.api
-      ?.getPlatform()
-      .then((p) => setPlatform(p))
-      .catch(() => {})
+    if (!platformInitialized.current) {
+      platformInitialized.current = true
+      window.api
+        ?.getPlatform()
+        .then((p) => setPlatform(p))
+        .catch(() => {})
+    }
   }, [])
 
-  const startRecording = async (title: string, selectedMicId: string): Promise<void> => {
+  const startRecording = async (
+    title: string,
+    selectedMicId: string,
+    modelName: string
+  ): Promise<void> => {
     setError(null)
+    startTimeRef.current = Date.now()
+    selectedModelRef.current = modelName
+    apiKeyRef.current = apiKey
+
     try {
       const isMac = platform === 'darwin'
 
@@ -56,40 +78,45 @@ export function useMediaRecorder(): MediaRecorderState {
         audio: selectedMicId ? { deviceId: { exact: selectedMicId } } : true
       })
 
-      let combinedStream: MediaStream
+      // Combine video track + all audio tracks
+      const tracks = [...displayStream.getVideoTracks()]
 
-      if (!isMac && displayStream.getAudioTracks().length > 0) {
-        const audioContext = new AudioContext()
-        await audioContext.resume()
-        audioContextRef.current = audioContext
-        const destination = audioContext.createMediaStreamDestination()
-
-        const systemSource = audioContext.createMediaStreamSource(
-          new MediaStream(displayStream.getAudioTracks())
-        )
-        systemSource.connect(destination)
-
-        const micSource = audioContext.createMediaStreamSource(
-          new MediaStream(micStream.getAudioTracks())
-        )
-        micSource.connect(destination)
-
-        combinedStream = new MediaStream([
-          ...displayStream.getVideoTracks(),
-          ...destination.stream.getAudioTracks()
-        ])
+      if (isMac) {
+        tracks.push(...micStream.getAudioTracks())
       } else {
-        combinedStream = new MediaStream([
-          ...displayStream.getVideoTracks(),
-          ...micStream.getAudioTracks()
-        ])
+        const audioCtx = new AudioContext()
+        audioContextRef.current = audioCtx
+        const dest = audioCtx.createMediaStreamDestination()
+
+        if (displayStream.getAudioTracks().length > 0) {
+          const sysSource = audioCtx.createMediaStreamSource(
+            new MediaStream(displayStream.getAudioTracks())
+          )
+          sysSource.connect(dest)
+        }
+
+        if (micStream.getAudioTracks().length > 0) {
+          const micSource = audioCtx.createMediaStreamSource(
+            new MediaStream(micStream.getAudioTracks())
+          )
+          micSource.connect(dest)
+        }
+
+        tracks.push(...dest.stream.getAudioTracks())
       }
 
-      allTracksRef.current = [...displayStream.getTracks(), ...micStream.getTracks()]
+      allTracksRef.current = [...displayStream.getTracks(), ...micStream.getTracks(), ...tracks]
 
-      const mediaRecorder = new MediaRecorder(combinedStream, { mimeType: 'video/webm' })
-      mediaRecorderRef.current = mediaRecorder
+      const combinedStream = new MediaStream(tracks)
       chunksRef.current = []
+
+      // High quality WebM format with Opus audio
+      const mimeType = MediaRecorder.isTypeSupported('video/webm; codecs=vp9,opus')
+        ? 'video/webm; codecs=vp9,opus'
+        : 'video/webm'
+
+      const mediaRecorder = new MediaRecorder(combinedStream, { mimeType })
+      mediaRecorderRef.current = mediaRecorder
 
       mediaRecorder.ondataavailable = (e: BlobEvent): void => {
         if (e.data.size > 0) {
@@ -99,6 +126,95 @@ export function useMediaRecorder(): MediaRecorderState {
 
       mediaRecorder.onstop = async (): Promise<void> => {
         setIsProcessing(true)
+        const durationSeconds = Math.max(1, Math.round((Date.now() - startTimeRef.current) / 1000))
+
+        // Helper to process transcription and DB updates
+        const processRecording = async (paths: {
+          videoPath: string
+          audioPath: string
+        }): Promise<void> => {
+          console.log('[useMediaRecorder] Saved to:', paths)
+          const user = auth.currentUser
+          const token = user ? await user.getIdToken() : ''
+          const meetingId = `meeting_${Date.now()}`
+          let backendDocId = meetingId
+
+          try {
+            // 1. POST to backend (status: processing)
+            const res = await axios.post(
+              `${import.meta.env.VITE_BACKEND_URL}/api/meetings`,
+              {
+                id: meetingId,
+                title,
+                status: 'processing',
+                videoPath: paths.videoPath,
+                audioPath: paths.audioPath,
+                durationSeconds,
+                startTime: startTimeRef.current,
+                date: new Date().toISOString(),
+                createdAt: new Date().toISOString()
+              },
+              { headers: { ...(token && { Authorization: `Bearer ${token}` }) } }
+            )
+            backendDocId = res.data?.id || meetingId
+            console.log('[useMediaRecorder] Created processing doc:', backendDocId)
+            queryClient.invalidateQueries({ queryKey: ['meetings'] })
+          } catch (e) {
+            console.error('[useMediaRecorder] Failed to create processing doc:', e)
+          }
+
+          const currentApiKey = apiKeyRef.current
+          if (currentApiKey) {
+            console.log(
+              '[useMediaRecorder] Starting Gemini transcription with model:',
+              selectedModelRef.current
+            )
+            try {
+              const transcript = (await window.api.transcribeAudio(
+                paths.audioPath,
+                currentApiKey,
+                title,
+                selectedModelRef.current
+              )) as Record<string, unknown>
+              console.log('[useMediaRecorder] Transcription success:', transcript)
+
+              // 2. PATCH to backend (status: completed)
+              if (backendDocId) {
+                await axios.patch(
+                  `${import.meta.env.VITE_BACKEND_URL}/api/meetings`,
+                  {
+                    id: backendDocId,
+                    ...transcript,
+                    durationSeconds,
+                    status: 'completed'
+                  },
+                  { headers: { ...(token && { Authorization: `Bearer ${token}` }) } }
+                )
+                queryClient.invalidateQueries({ queryKey: ['meetings'] })
+                queryClient.invalidateQueries({ queryKey: ['meeting', backendDocId] })
+              }
+            } catch (err) {
+              console.error('[useMediaRecorder] Transcription failed:', err)
+              // PATCH status: error
+              if (backendDocId) {
+                await axios.patch(
+                  `${import.meta.env.VITE_BACKEND_URL}/api/meetings`,
+                  {
+                    id: backendDocId,
+                    status: 'error',
+                    errorMessage: err instanceof Error ? err.message : 'Unknown error'
+                  },
+                  { headers: { ...(token && { Authorization: `Bearer ${token}` }) } }
+                )
+                queryClient.invalidateQueries({ queryKey: ['meetings'] })
+                queryClient.invalidateQueries({ queryKey: ['meeting', backendDocId] })
+              }
+            }
+          } else {
+            console.warn('[useMediaRecorder] No API key configured, skipping transcription')
+          }
+        }
+
         try {
           const videoMicBlob = new Blob(chunksRef.current, { type: 'video/webm' })
 
@@ -106,22 +222,29 @@ export function useMediaRecorder(): MediaRecorderState {
             console.log('[useMediaRecorder] Stopping Swift audio capture...')
             const systemAudioPath = await window.api.stopSystemAudio()
 
+            let paths: { videoPath: string; audioPath: string } | false = false
             if (systemAudioPath) {
               console.log(
                 `[useMediaRecorder] Got system audio path: ${systemAudioPath}, merging via FFmpeg...`
               )
               const videoBuffer = await videoMicBlob.arrayBuffer()
-              await window.api.mergeAndSaveRecording(videoBuffer, systemAudioPath, title)
+              paths = await window.api.mergeAndSaveRecording(videoBuffer, systemAudioPath, title)
             } else {
               console.warn(
                 '[useMediaRecorder] No system audio data received, saving video+mic only'
               )
               const videoBuffer = await videoMicBlob.arrayBuffer()
-              await window.api.saveRecording(videoBuffer, title)
+              paths = await window.api.saveRecording(videoBuffer, title)
+            }
+            if (paths && paths.audioPath) {
+              await processRecording(paths)
             }
           } else {
             const videoBuffer = await videoMicBlob.arrayBuffer()
-            await window.api.saveRecording(videoBuffer, title)
+            const paths = await window.api.saveRecording(videoBuffer, title)
+            if (paths && paths.audioPath) {
+              await processRecording(paths)
+            }
           }
         } catch (err) {
           console.error('[useMediaRecorder] Error processing recording:', err)
