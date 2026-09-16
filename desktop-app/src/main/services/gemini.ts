@@ -70,13 +70,14 @@ const MODEL_PRIORITY: string[] = [
 ]
 
 export async function fetchAvailableModels(apiKey: string): Promise<GeminiModel[]> {
-  const url = `https://generativelanguage.googleapis.com/v1beta/models?key=${encodeURIComponent(apiKey)}`
+  const cleanKey = apiKey.trim()
+  const url = `https://generativelanguage.googleapis.com/v1beta/models?key=${encodeURIComponent(cleanKey)}`
   const response = await fetch(url)
 
   if (!response.ok) {
     const errorText = await response.text()
     if (response.status === 400 || response.status === 403) {
-      throw new Error('Invalid API key. Please check your Gemini API key in Settings.')
+      throw new Error(`Invalid API key. Google responded with ${response.status}: ${errorText}`)
     }
     throw new Error(`Failed to fetch models: ${response.status} ${errorText}`)
   }
@@ -152,7 +153,8 @@ async function callGeminiApi(
   title: string,
   model: string
 ): Promise<TranscriptData> {
-  const url = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${encodeURIComponent(apiKey)}`
+  const cleanKey = apiKey.trim()
+  const url = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${encodeURIComponent(cleanKey)}`
 
   const requestBody = {
     contents: [

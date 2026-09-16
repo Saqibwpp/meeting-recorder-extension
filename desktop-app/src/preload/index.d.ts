@@ -32,6 +32,10 @@ declare global {
           outputTokenLimit: number
         }[]
       >
+      connectDrive: () => Promise<boolean>
+      disconnectDrive: () => Promise<void>
+      checkDriveStatus: () => Promise<boolean>
+      uploadToDrive: (filePath: string, title: string) => Promise<string | null>
     }
   }
 }

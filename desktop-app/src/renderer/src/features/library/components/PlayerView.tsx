@@ -1,4 +1,4 @@
-import React, { useRef } from 'react'
+import React, { useRef, useState } from 'react'
 import { useParams, useNavigate, Link } from 'react-router-dom'
 import {
   Loader2,
@@ -35,8 +35,18 @@ export const PlayerView: React.FC = () => {
 
   const { data: meeting, isLoading: loading } = useMeeting(meetingId)
   const { models, selectedModel, setSelectedModel, isLoading: modelsLoading } = useGeminiModels()
+  
+  const [videoSource, setVideoSource] = useState<'local' | 'cloud' | 'error'>('local')
+  const [currentMeetingId, setCurrentMeetingId] = useState(meeting?.id)
+  
   const { retryTranscription, isRetrying } = useRetryTranscription()
   const { isConfigured: hasApiKey } = useApiKey()
+
+  // React derived state (no useEffect needed)
+  if (meeting?.id !== currentMeetingId) {
+    setCurrentMeetingId(meeting?.id)
+    setVideoSource('local')
+  }
 
   const handleRetryTranscription = (): void => {
     if (!meeting?.audioPath || !meeting?.id) return
@@ -166,13 +176,37 @@ export const PlayerView: React.FC = () => {
         {/* Left: Video / Media Player */}
         <div className="w-[60%] flex flex-col border-r border-[#e2e0d8] bg-[#faf9f6]">
           <div className="w-full aspect-video bg-black flex-shrink-0 relative">
-            {meeting.videoPath ? (
+            {meeting.videoPath && videoSource === 'local' ? (
               <video
                 ref={videoRef}
                 src={`local://${meeting.videoPath}`}
                 controls
                 className="w-full h-full object-contain"
+                onError={() => {
+                  if (meeting.videoUrl) {
+                    setVideoSource('cloud')
+                  } else {
+                    setVideoSource('error')
+                  }
+                }}
               />
+            ) : meeting.videoUrl && (videoSource === 'cloud' || !meeting.videoPath) ? (
+              <video
+                ref={videoRef}
+                src={meeting.videoUrl}
+                controls
+                className="w-full h-full object-contain"
+                onError={() => setVideoSource('error')}
+              />
+            ) : videoSource === 'error' ? (
+              <div className="absolute inset-0 flex flex-col items-center justify-center p-6 text-center space-y-3 bg-[#111] text-[#a0a0a0]">
+                <AlertCircle className="w-8 h-8 text-red-500/80 mb-2" />
+                <p className="text-sm font-medium text-white/90">Local video file missing</p>
+                <p className="text-xs max-w-xs leading-relaxed">
+                  The original video file was deleted from your hard drive. 
+                  {!meeting.videoUrl && ' No Google Drive backup was found for this meeting.'}
+                </p>
+              </div>
             ) : meeting.audioUrl ? (
               <div className="absolute inset-0 flex flex-col items-center justify-center p-6 text-white space-y-3">
                 <p className="text-sm font-mono text-white/70">Audio Recording (Cloud)</p>

@@ -26,6 +26,7 @@ export interface Meeting {
   videoPath?: string
   audioPath?: string
   audioUrl?: string
+  videoUrl?: string
   summary?: string
   actionItems?: string[]
   segments?: TranscriptSegment[]

@@ -34,7 +34,13 @@ const api = {
   getGeminiModels: (
     apiKey: string
   ): Promise<{ name: string; displayName: string; description: string }[]> =>
-    ipcRenderer.invoke('get-gemini-models', apiKey)
+    ipcRenderer.invoke('get-gemini-models', apiKey),
+  // Google Drive
+  connectDrive: (): Promise<boolean> => ipcRenderer.invoke('connect-drive'),
+  disconnectDrive: (): Promise<void> => ipcRenderer.invoke('disconnect-drive'),
+  checkDriveStatus: (): Promise<boolean> => ipcRenderer.invoke('check-drive-status'),
+  uploadToDrive: (filePath: string, title: string): Promise<string | null> =>
+    ipcRenderer.invoke('upload-to-drive', filePath, title)
 }
 
 // Use `contextBridge` APIs to expose Electron APIs to

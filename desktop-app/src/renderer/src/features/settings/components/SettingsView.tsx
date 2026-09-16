@@ -9,14 +9,17 @@ import {
   ExternalLink,
   Loader2
 } from 'lucide-react'
+import { Cloud } from 'lucide-react'
 import { useApiKey } from '../../../hooks/useApiKey'
 import { useGeminiModels } from '../../../hooks/useGeminiModels'
+import { useGoogleDrive } from '../../../hooks/useGoogleDrive'
 import { Card } from '../../../components/ui/Card'
 import { Button } from '../../../components/ui/Button'
 
 export const SettingsView: React.FC = () => {
   const { apiKey, setApiKey, isConfigured } = useApiKey()
   const { models, isLoading: modelsLoading, query } = useGeminiModels()
+  const { isConnected, isConnecting, isDisconnecting, connect, disconnect } = useGoogleDrive()
   const [inputValue, setInputValue] = useState(apiKey)
   const [showKey, setShowKey] = useState(false)
   const [isSaving, setIsSaving] = useState(false)
@@ -144,6 +147,73 @@ export const SettingsView: React.FC = () => {
                 <ExternalLink className="w-3 h-3" />
               </a>
             </div>
+          </div>
+        </Card>
+
+        {/* Google Drive Sync Section */}
+        <Card className="p-6">
+          <div className="flex items-center gap-3 mb-5">
+            <div
+              className={`w-10 h-10 rounded-lg flex items-center justify-center border ${
+                isConnected
+                  ? 'bg-blue-50 border-blue-200 text-blue-600'
+                  : 'bg-[#f4f3f0] border-[#e2e0d8] text-[#737373]'
+              }`}
+            >
+              <Cloud className="w-5 h-5" />
+            </div>
+            <div>
+              <h2 className="text-base font-semibold text-[#1a1a1a]">Google Drive Sync</h2>
+              <p className="text-xs text-[#737373]">
+                Automatically save your recordings straight to your Google Drive
+              </p>
+            </div>
+            {isConnected && (
+              <div className="ml-auto flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-blue-50 border border-blue-200">
+                <CheckCircle2 className="w-3 h-3 text-blue-600" />
+                <span className="text-[10px] font-mono uppercase tracking-wider text-blue-700 font-semibold">
+                  Connected
+                </span>
+              </div>
+            )}
+          </div>
+
+          <div className="flex items-center gap-2">
+            {!isConnected ? (
+              <Button
+                variant="primary"
+                size="sm"
+                onClick={() => connect()}
+                disabled={isConnecting}
+                className="flex items-center gap-1.5"
+              >
+                {isConnecting ? (
+                  <>
+                    <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                    Connecting...
+                  </>
+                ) : (
+                  'Connect Google Drive'
+                )}
+              </Button>
+            ) : (
+              <Button
+                variant="secondary"
+                size="sm"
+                onClick={() => disconnect()}
+                disabled={isDisconnecting}
+                className="flex items-center gap-1.5 text-red-600 hover:text-red-700"
+              >
+                {isDisconnecting ? (
+                  <>
+                    <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                    Disconnecting...
+                  </>
+                ) : (
+                  'Disconnect Drive'
+                )}
+              </Button>
+            )}
           </div>
         </Card>
 

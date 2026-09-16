@@ -179,6 +179,27 @@ export function useMediaRecorder(): MediaRecorderState {
                   durationSeconds,
                   status: 'completed'
                 })
+
+                // Auto-upload to Google Drive if connected
+                try {
+                  if (window.api?.checkDriveStatus && window.api?.uploadToDrive) {
+                    const isDriveConnected = await window.api.checkDriveStatus()
+                    if (isDriveConnected) {
+                      console.log('[useMediaRecorder] Auto-uploading to Google Drive...')
+                      const driveUrl = await window.api.uploadToDrive(paths.videoPath, title)
+                      if (driveUrl && backendDocId) {
+                        await api.patch('/api/meetings', {
+                          id: backendDocId,
+                          videoUrl: driveUrl
+                        })
+                        console.log('[useMediaRecorder] Drive upload complete:', driveUrl)
+                      }
+                    }
+                  }
+                } catch (driveErr) {
+                  console.error('[useMediaRecorder] Drive upload failed:', driveErr)
+                }
+
                 queryClient.invalidateQueries({ queryKey: ['meetings'] })
                 queryClient.invalidateQueries({ queryKey: ['meeting', backendDocId] })
               }

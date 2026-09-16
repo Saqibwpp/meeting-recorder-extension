@@ -368,6 +368,27 @@ app.whenReady().then(async () => {
     })
   })
 
+  // Google Drive IPCs
+  ipcMain.handle('connect-drive', async () => {
+    const { connectDrive } = await import('./services/drive')
+    return connectDrive()
+  })
+
+  ipcMain.handle('disconnect-drive', async () => {
+    const { disconnectDrive } = await import('./services/drive')
+    return disconnectDrive()
+  })
+
+  ipcMain.handle('check-drive-status', async () => {
+    const { checkDriveStatus } = await import('./services/drive')
+    return checkDriveStatus()
+  })
+
+  ipcMain.handle('upload-to-drive', async (_event, filePath: string, title: string) => {
+    const { uploadToDrive } = await import('./services/drive')
+    return uploadToDrive(filePath, title)
+  })
+
   // ==========================================
   // 6. IPC HANDLERS: AUDIO CAPTURE & RECORDING
   // ==========================================
