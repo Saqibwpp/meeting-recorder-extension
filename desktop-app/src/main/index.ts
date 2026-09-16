@@ -133,12 +133,20 @@ function createMainWindow(showOnReady = true): void {
     show: false,
     autoHideMenuBar: true,
     titleBarStyle: 'hidden',
-    ...(process.platform === 'linux' ? { icon } : {}),
+    title: 'Embrace AI',
+    icon,
     webPreferences: {
       preload: join(__dirname, '../preload/index.js'),
       sandbox: false
     }
   })
+
+  if (process.platform === 'darwin' && app.dock) {
+    const dockIcon = nativeImage.createFromPath(icon)
+    if (!dockIcon.isEmpty()) {
+      app.dock.setIcon(dockIcon)
+    }
+  }
 
   mainWindow.on('ready-to-show', () => {
     if (showOnReady) {
