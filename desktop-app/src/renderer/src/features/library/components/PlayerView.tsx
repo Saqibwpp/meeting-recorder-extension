@@ -481,29 +481,37 @@ export const PlayerView: React.FC = () => {
               </div>
             ) : meeting.status === 'error' || (!meeting.segments?.length && meeting.audioPath) ? (
               <div className="flex flex-col items-center justify-center h-full text-center space-y-4 max-w-sm mx-auto p-6">
-                <div className="w-12 h-12 rounded-xl bg-red-50 border border-red-200 flex items-center justify-center text-red-600">
-                  <AlertCircle className="w-6 h-6" />
+                <div className="w-12 h-12 rounded-xl bg-amber-500/10 border border-amber-500/20 flex items-center justify-center text-amber-600 dark:text-amber-400">
+                  <WandSparkles className="w-6 h-6" />
                 </div>
                 <div>
-                  <p className="text-[14px] font-medium text-foreground">
-                    Transcription Incomplete
+                  <p className="text-[15px] font-semibold text-foreground">
+                    {meeting.status === 'error' ? 'Transcription Failed' : 'No AI Transcript Yet'}
                   </p>
-                  <p className="text-[12px] text-muted-foreground mt-1 leading-relaxed">
-                    {meeting.errorMessage || 'An error occurred during transcription.'}
+                  <p className="text-[12px] text-muted-foreground mt-1.5 leading-relaxed">
+                    {meeting.errorMessage ||
+                      'This meeting was saved locally. You can generate the transcript and summary whenever you are ready.'}
                   </p>
                 </div>
 
-                {!hasApiKey && (
-                  <div className="flex items-center gap-2 px-3 py-2 rounded-lg bg-amber-50 border border-amber-200 text-amber-700 text-[12px] font-medium w-full text-left">
-                    <AlertTriangle className="w-4 h-4 shrink-0" />
-                    <span>No API key configured. Configure in Integrations.</span>
+                {!hasApiKey ? (
+                  <div className="w-full space-y-3">
+                    <div className="flex items-start gap-2.5 p-3 rounded-xl bg-amber-500/10 border border-amber-500/25 text-amber-700 dark:text-amber-300 text-[12px] font-medium text-left">
+                      <AlertTriangle className="w-4 h-4 shrink-0 mt-0.5" />
+                      <span>Gemini API key is required to transcribe audio into text and generate AI notes.</span>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => navigate('/settings')}
+                      className="action-button w-full"
+                    >
+                      Add API Key in Settings
+                    </button>
                   </div>
-                )}
-
-                {hasApiKey && (
-                  <div className="w-full mt-4 text-left bg-background rounded-xl p-4 border border-border">
-                    <div className="mb-3 text-[11px] font-semibold text-subtle uppercase tracking-wider">
-                      Model Selection
+                ) : (
+                  <div className="w-full mt-2 text-left bg-background rounded-xl p-4 border border-border">
+                    <div className="mb-2.5 text-[11px] font-semibold text-subtle uppercase tracking-wider">
+                      Transcription Model
                     </div>
                     <ModelSelect
                       models={models}
@@ -518,7 +526,7 @@ export const PlayerView: React.FC = () => {
                       className="action-button mt-4 w-full"
                     >
                       <RefreshCw className={`w-3.5 h-3.5 ${isRetrying ? 'animate-spin' : ''}`} />
-                      <span>{isRetrying ? 'Retrying...' : 'Retry Transcription'}</span>
+                      <span>{isRetrying ? 'Transcribing...' : 'Generate AI Transcript'}</span>
                     </button>
                   </div>
                 )}
