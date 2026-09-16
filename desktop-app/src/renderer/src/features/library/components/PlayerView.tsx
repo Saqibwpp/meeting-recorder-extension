@@ -18,6 +18,7 @@ import {
 } from 'lucide-react'
 import { useMeeting } from '../hooks/useMeeting'
 import { useRetryTranscription } from '../hooks/useRetryTranscription'
+import { useUploadMeetingToDrive } from '../hooks/useUploadMeetingToDrive'
 import { useGeminiModels } from '../../../hooks/useGeminiModels'
 import { useApiKey } from '../../../hooks/useApiKey'
 import { ModelSelect } from '../../../components/ui/ModelSelect'
@@ -53,6 +54,7 @@ export const PlayerView: React.FC = () => {
   const [copiedExport, setCopiedExport] = useState(false)
 
   const { retryTranscription, isRetrying } = useRetryTranscription()
+  const { uploadMeetingToDrive, isUploading } = useUploadMeetingToDrive()
   const { isConfigured: hasApiKey } = useApiKey()
 
   if (meeting?.id !== currentMeetingId) {
@@ -253,9 +255,38 @@ export const PlayerView: React.FC = () => {
                     )}
                   </div>
                 ) : hasLocal ? (
-                  <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-secondary text-muted-foreground text-[11px] font-medium border border-border">
-                    <HardDrive className="w-3.5 h-3.5" /> Local storage only
-                  </span>
+                  <div className="flex items-center gap-2">
+                    <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-secondary text-muted-foreground text-[11px] font-medium border border-border">
+                      <HardDrive className="w-3.5 h-3.5" /> Local storage only
+                    </span>
+                    {meeting.videoPath && (
+                      <button
+                        type="button"
+                        onClick={() => {
+                          if (meeting.id && meeting.videoPath) {
+                            uploadMeetingToDrive({
+                              meetingId: meeting.id,
+                              videoPath: meeting.videoPath,
+                              title: meeting.title || 'Meeting Recording'
+                            })
+                          }
+                        }}
+                        disabled={isUploading}
+                        className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-primary/10 text-primary hover:bg-primary/20 text-[11px] font-semibold transition-colors border border-primary/20 cursor-pointer disabled:opacity-50"
+                        title="Upload this recording to Google Drive"
+                      >
+                        {isUploading ? (
+                          <>
+                            <Loader2 className="w-3.5 h-3.5 animate-spin" /> Backing up...
+                          </>
+                        ) : (
+                          <>
+                            <Cloud className="w-3.5 h-3.5" /> Back up to Drive
+                          </>
+                        )}
+                      </button>
+                    )}
+                  </div>
                 ) : null}
               </div>
 

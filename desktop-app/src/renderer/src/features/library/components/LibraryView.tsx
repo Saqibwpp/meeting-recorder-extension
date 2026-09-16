@@ -9,17 +9,21 @@ import {
   Calendar,
   Users,
   Cloud,
-  HardDrive
+  HardDrive,
+  X
 } from 'lucide-react'
 import { TopBar } from '../../../components/layout/TopBar'
 import { ActionButton } from '../../../components/ui/ActionButton'
 import { useMeetings } from '../hooks/useMeetings'
+import { useGoogleDrive } from '../../../hooks/useGoogleDrive'
 
 type SortOption = 'newest' | 'oldest' | 'duration'
 
 export const LibraryView: React.FC = () => {
   const navigate = useNavigate()
   const { data: meetings = [], isLoading } = useMeetings()
+  const { isConnected: isDriveConnected, isLoading: isDriveLoading } = useGoogleDrive()
+  const [bannerDismissed, setBannerDismissed] = useState(false)
   const [searchQuery, setSearchQuery] = useState('')
   const [filter, setFilter] = useState<'all' | 'week' | 'shared'>('all')
   const [sortBy, setSortBy] = useState<SortOption>('newest')
@@ -67,6 +71,43 @@ export const LibraryView: React.FC = () => {
       />
 
       <div className="mx-auto w-full max-w-[1180px] px-8 py-8 flex-1">
+        {/* Drive Integration Banner */}
+        {!isDriveLoading && !isDriveConnected && !bannerDismissed && (
+          <div className="mb-6 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 rounded-xl border border-border bg-card p-4 sm:px-5 sm:py-3.5 shadow-xs relative">
+            <div className="flex items-center gap-3.5 pr-6">
+              <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-secondary text-foreground shrink-0">
+                <Cloud className="w-4 h-4" />
+              </div>
+              <div>
+                <h3 className="text-[13px] font-semibold text-foreground">
+                  Google Drive is not connected
+                </h3>
+                <p className="text-[12px] text-muted-foreground mt-0.5">
+                  Connect your Google account to automatically back up recordings to the cloud and
+                  share them via link.
+                </p>
+              </div>
+            </div>
+            <div className="flex items-center gap-2 shrink-0">
+              <button
+                type="button"
+                onClick={() => navigate('/settings')}
+                className="h-8 px-3.5 bg-foreground text-background hover:opacity-90 rounded-lg text-[12px] font-semibold transition-all"
+              >
+                Connect Drive
+              </button>
+              <button
+                type="button"
+                onClick={() => setBannerDismissed(true)}
+                className="p-1 text-subtle hover:text-foreground transition-colors"
+                title="Dismiss"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+          </div>
+        )}
+
         <div className="flex items-end justify-between">
           <div>
             <p className="eyebrow text-primary">Your archive</p>
