@@ -1,68 +1,195 @@
 @import 'tailwindcss';
 
-:root {
-  --background: #faf9f6; /* Soft off-white */
-  --foreground: #1a1a1a;
-
-  --surface: #ffffff;
-  --border: #e2e0d8;
-  --muted: #f4f3f0;
-  --muted-foreground: #737373;
-
-  --primary: #2d2d2d;
-  --primary-foreground: #ffffff;
-
-  /* Pastel accents */
-  --section-blush: #fcf1f1;
-  --section-butter: #fcf8eb;
-  --section-lilac: #f3f0f7;
-
-  --code: #f6f5f3;
-  --code-foreground: #333333;
-  --code-muted: #888888;
-}
+@custom-variant dark (&:is(.dark *));
 
 @theme inline {
+  --font-display: "Space Grotesk", sans-serif;
+  --font-body: "DM Sans", sans-serif;
+  
   --color-background: var(--background);
   --color-foreground: var(--foreground);
-  --color-surface: var(--surface);
-  --color-border: var(--border);
-  --color-muted: var(--muted);
-  --color-muted-foreground: var(--muted-foreground);
+  --color-card: var(--card);
+  --color-card-foreground: var(--card-foreground);
   --color-primary: var(--primary);
   --color-primary-foreground: var(--primary-foreground);
-
-  --color-section-blush: var(--section-blush);
-  --color-section-butter: var(--section-butter);
-  --color-section-lilac: var(--section-lilac);
-
-  --color-code: var(--code);
-  --color-code-foreground: var(--code-foreground);
-  --color-code-muted: var(--code-muted);
-
-  --shadow-editorial: 0 4px 20px -4px rgba(0, 0, 0, 0.05), 0 1px 3px rgba(0, 0, 0, 0.02);
-  --shadow-soft: 0 2px 10px -2px rgba(0, 0, 0, 0.03);
+  --color-secondary: var(--secondary);
+  --color-secondary-foreground: var(--secondary-foreground);
+  --color-muted: var(--muted);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-subtle: var(--subtle);
+  --color-border: var(--border);
+  --color-input: var(--input);
+  --color-ring: var(--ring);
+  --color-sidebar: var(--sidebar);
+  --color-success: var(--success);
+  --color-amber-soft: var(--amber-soft);
+  
+  --shadow-soft: var(--shadow-soft);
+  --shadow-inset: var(--shadow-inset);
 }
 
-html,
-body,
-#root {
-  height: 100%;
-  width: 100%;
-  margin: 0;
-  padding: 0;
-  background-color: var(--background);
-  color: var(--foreground);
-  font-family:
-    'Inter',
-    -apple-system,
-    BlinkMacSystemFont,
-    'Segoe UI',
-    Roboto,
-    Oxygen,
-    Ubuntu,
-    Cantarell,
-    'Open Sans',
-    'Helvetica Neue',
-    sans-serif;
+:root {
+  --background: oklch(0.96 0.012 86);
+  --foreground: oklch(0.23 0.012 75);
+  --card: oklch(0.975 0.008 85);
+  --card-foreground: oklch(0.23 0.012 75);
+  --primary: oklch(0.64 0.12 75);
+  --primary-foreground: oklch(0.98 0.006 85);
+  --secondary: oklch(0.925 0.018 83);
+  --secondary-foreground: oklch(0.27 0.012 75);
+  --muted: oklch(0.925 0.014 83);
+  --muted-foreground: oklch(0.44 0.016 72);
+  --subtle: oklch(0.59 0.014 75);
+  --border: oklch(0.85 0.022 80);
+  --input: oklch(0.85 0.022 80);
+  --ring: oklch(0.64 0.12 75);
+  --sidebar: oklch(0.925 0.018 83);
+  --success: oklch(0.65 0.1 155);
+  --amber-soft: oklch(0.88 0.055 82);
+  
+  --shadow-soft: 0 12px 28px -18px color-mix(in oklab, var(--foreground) 32%, transparent);
+  --shadow-inset: inset 0 1px 0 color-mix(in oklab, var(--background) 12%, transparent);
 }
+
+@keyframes recpulse {
+  0%, 100% { opacity: 1; box-shadow: 0 0 0 0 color-mix(in oklab, var(--primary) 45%, transparent); }
+  50% { opacity: 0.6; box-shadow: 0 0 0 5px transparent; }
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  .rec-dot { animation: recpulse 1.6s ease-in-out infinite; }
+}
+
+@layer base {
+  * { border-color: var(--border); }
+  html { background: var(--background); }
+  body { 
+    margin: 0; 
+    background: var(--background); 
+    color: var(--foreground); 
+    font-family: var(--font-body);
+    -webkit-font-smoothing: antialiased;
+  }
+  button, a { cursor: pointer; }
+  button:focus-visible, a:focus-visible { outline: 2px solid var(--ring); outline-offset: 2px; }
+  h1, h2, h3, h4, h5, h6 { font-family: var(--font-display); }
+}
+
+@layer components {
+  .action-button {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.4rem;
+    border-radius: 0.5rem;
+    background: var(--foreground);
+    color: var(--background);
+    padding: 0.55rem 0.85rem;
+    font-size: 0.75rem;
+    font-weight: 500;
+    transition: all 0.2s;
+  }
+
+  .action-button:hover {
+    opacity: 0.9;
+  }
+
+  .action-button-muted {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.4rem;
+    border: 1px solid var(--border);
+    border-radius: 0.5rem;
+    background: var(--card);
+    color: var(--muted-foreground);
+    padding: 0.55rem 0.85rem;
+    font-size: 0.75rem;
+    font-weight: 500;
+    transition: all 0.2s;
+  }
+
+  .action-button-muted:hover {
+    background: var(--secondary);
+  }
+
+  .eyebrow {
+    font-size: 0.6875rem;
+    font-weight: 600;
+    letter-spacing: 0.16em;
+    text-transform: uppercase;
+    color: var(--subtle);
+  }
+
+  .section-title {
+    font-family: var(--font-display);
+    font-size: 1.05rem;
+    font-weight: 600;
+  }
+
+  .field-label {
+    display: block;
+    margin-bottom: 0.45rem;
+    font-size: 0.625rem;
+    font-weight: 600;
+    letter-spacing: 0.14em;
+    text-transform: uppercase;
+    color: var(--subtle);
+  }
+
+  .field {
+    display: flex;
+    min-height: 2.65rem;
+    align-items: center;
+    justify-content: space-between;
+    border: 1px solid var(--border);
+    border-radius: 0.5rem;
+    background: var(--card);
+    padding: 0 0.8rem;
+    font-size: 0.75rem;
+  }
+
+  .status-success {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.3rem;
+    border-radius: 999px;
+    background: color-mix(in oklab, var(--success) 13%, transparent);
+    padding: 0.28rem 0.52rem;
+    font-size: 0.625rem;
+    font-weight: 600;
+    color: var(--success);
+  }
+
+  .icon-tile {
+    display: grid;
+    width: 2.25rem;
+    height: 2.25rem;
+    flex-shrink: 0;
+    place-items: center;
+    border-radius: 0.5rem;
+    background: var(--secondary);
+    color: var(--primary);
+  }
+
+  .filter {
+    border-radius: 0.375rem;
+    padding: 0.4rem 0.7rem;
+    font-size: 0.75rem;
+    color: var(--muted-foreground);
+    transition: all 0.2s;
+  }
+
+  .filter:hover {
+    background: var(--secondary);
+  }
+
+  .filter-active {
+    border-radius: 0.375rem;
+    background: var(--foreground);
+    padding: 0.4rem 0.7rem;
+    font-size: 0.75rem;
+    color: var(--background);
+  }
+}
+

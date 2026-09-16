@@ -1,210 +1,317 @@
-import React from 'react'
-import { useForm } from 'react-hook-form'
-import { zodResolver } from '@hookform/resolvers/zod'
-import { z } from 'zod'
-import { Video, Mic, Monitor, StopCircle, Play, Loader2, AlertTriangle } from 'lucide-react'
-import { useAudioDevices } from '../hooks/useAudioDevices'
+import React, { useState } from 'react'
+import {
+  Play,
+  Settings,
+  Mic2,
+  Monitor,
+  Sparkles,
+  ChevronDown,
+  Check,
+  Square,
+  LucideIcon
+} from 'lucide-react'
+import { TopBar } from '../../../components/layout/TopBar'
 import { useMediaRecorder } from '../hooks/useMediaRecorder'
+import { useAudioDevices } from '../hooks/useAudioDevices'
 import { useGeminiModels } from '../../../hooks/useGeminiModels'
-import { useApiKey } from '../../../hooks/useApiKey'
-import { DeviceSelect } from './DeviceSelect'
-import { ModelSelect } from '../../../components/ui/ModelSelect'
-import { Card } from '../../../components/ui/Card'
-import { Input } from '../../../components/ui/Input'
-import { Button } from '../../../components/ui/Button'
-import { Alert } from '../../../components/ui/Alert'
-import { Link } from 'react-router-dom'
+import { useNavigate } from 'react-router-dom'
+import { useMeetings } from '../../library/hooks/useMeetings'
 
-const recordingSchema = z.object({
-  title: z.string().min(3, 'Meeting title must be at least 3 characters')
-})
+interface ActionProps {
+  children: React.ReactNode
+  icon?: LucideIcon
+  muted?: boolean
+  onClick?: () => void
+}
 
-type RecordingFormData = z.infer<typeof recordingSchema>
+const Action = ({
+  children,
+  icon: Icon,
+  muted = false,
+  onClick
+}: ActionProps): React.ReactElement => {
+  return (
+    <button
+      type="button"
+      className={muted ? 'action-button-muted' : 'action-button'}
+      onClick={onClick}
+    >
+      {Icon && <Icon className="w-3.5 h-3.5" strokeWidth={1.8} />}
+      {children}
+    </button>
+  )
+}
 
 export const RecorderView: React.FC = () => {
-  const {
-    audioDevices,
-    selectedMicId,
-    setSelectedMicId,
-    isBluetoothSelected,
-    isLoading: isDevicesLoading
-  } = useAudioDevices()
+  const navigate = useNavigate()
+  const [title, setTitle] = useState('')
+  const { isRecording, startRecording, stopRecording } = useMediaRecorder()
+  const { audioDevices, selectedMicId, setSelectedMicId } = useAudioDevices()
+  const { models, selectedModel, setSelectedModel } = useGeminiModels()
+  const { data: meetings = [] } = useMeetings()
 
-  const {
-    models,
-    selectedModel,
-    setSelectedModel,
-    selectedModelInfo,
-    isLoading: modelsLoading
-  } = useGeminiModels()
-
-  const { isConfigured: hasApiKey } = useApiKey()
-
-  const { isRecording, isProcessing, error, platform, startRecording, stopRecording } =
-    useMediaRecorder()
-
-  const {
-    register,
-    handleSubmit,
-    formState: { errors }
-  } = useForm<RecordingFormData>({
-    resolver: zodResolver(recordingSchema),
-    defaultValues: {
-      title: 'Product Sync'
-    }
-  })
-
-  const onSubmit = (data: RecordingFormData): void => {
-    startRecording(data.title, selectedMicId, selectedModel)
-  }
+  const bars = [
+    'h-4',
+    'h-8',
+    'h-12',
+    'h-6',
+    'h-14',
+    'h-9',
+    'h-11',
+    'h-5',
+    'h-10',
+    'h-16',
+    'h-7',
+    'h-11',
+    'h-5',
+    'h-14',
+    'h-8',
+    'h-12',
+    'h-6',
+    'h-14',
+    'h-9',
+    'h-5',
+    'h-16',
+    'h-10',
+    'h-7',
+    'h-12',
+    'h-5',
+    'h-9',
+    'h-6',
+    'h-13',
+    'h-8',
+    'h-11'
+  ]
+  const recentRecordings = meetings.slice(0, 3)
 
   return (
-    <div className="flex flex-col items-center justify-center min-h-full p-6">
-      <Card className="max-w-[480px] w-full p-8 relative">
-        {/* Top Status Header */}
-        <div className="flex items-center justify-between pb-6 border-b border-[#e2e0d8] mb-6">
-          <div className="flex items-center gap-3">
-            <div
-              className={`w-10 h-10 rounded-lg flex items-center justify-center transition-colors ${
-                isRecording
-                  ? 'bg-red-50 text-red-600 border border-red-200'
-                  : 'bg-[#f4f3f0] text-[#1a1a1a] border border-[#e2e0d8]'
-              }`}
+    <div className="flex flex-col h-full bg-background text-foreground overflow-y-auto">
+      <TopBar
+        title="Record"
+        context="New session"
+        actions={
+          <>
+            <Action muted icon={Settings} onClick={() => navigate('/settings')}>
+              Setup
+            </Action>
+            <Action
+              icon={isRecording ? Square : Play}
+              onClick={() => {
+                if (isRecording) {
+                  stopRecording()
+                } else {
+                  startRecording(title, selectedMicId, selectedModel)
+                }
+              }}
             >
-              <Video className="w-5 h-5" />
-            </div>
-            <div>
-              <h2 className="text-base font-semibold text-[#1a1a1a]">Meeting Recorder</h2>
-              <p className="text-xs text-[#737373]">
-                {platform === 'darwin'
-                  ? 'macOS Native Swift Audio + Screen'
-                  : 'Windows WASAPI Loopback + Screen'}
-              </p>
-            </div>
-          </div>
+              {isRecording ? 'Stop recording' : 'Start recording'}
+            </Action>
+          </>
+        }
+      />
 
-          {isRecording ? (
-            <div className="flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-red-50 border border-red-200">
-              <span className="w-2 h-2 rounded-full bg-red-600 animate-pulse" />
-              <span className="text-[10px] font-mono uppercase tracking-wider text-red-700 font-semibold">
-                Live
+      <div className="mx-auto w-full max-w-[1180px] px-8 py-8 flex-1">
+        <div className="grid grid-cols-12 gap-6">
+          <section className="col-span-7">
+            <div className="mb-4 flex items-center gap-2.5">
+              <span
+                className={`w-2.5 h-2.5 rounded-full ${isRecording ? 'bg-red-500 animate-pulse' : 'bg-primary'}`}
+              />
+              <span
+                className={`text-[11px] uppercase tracking-[0.18em] ${isRecording ? 'text-red-500' : 'text-primary'}`}
+              >
+                {isRecording ? 'Recording active' : 'Recorder ready'}
+              </span>
+              <span className="text-[12px] text-subtle">Screen and audio</span>
+            </div>
+
+            <h1 className="max-w-[16ch] text-balance font-display text-[44px] font-semibold leading-[1.02] text-foreground">
+              Capture the meeting.
+              <br />
+              Keep the momentum.
+            </h1>
+            <p className="mt-3 max-w-[48ch] text-[15px] leading-relaxed text-muted-foreground">
+              Record your screen and microphone while Cadence prepares a searchable transcript,
+              concise summary, and clear next steps.
+            </p>
+
+            <div className="mt-7 rounded-xl bg-foreground p-5 text-background shadow-inset">
+              <div className="flex h-16 items-end gap-[5px] overflow-hidden">
+                {bars.map((height, index) => (
+                  <span
+                    key={index}
+                    className={`w-1 shrink-0 rounded-full ${height} ${
+                      isRecording
+                        ? index % 3 === 0
+                          ? 'bg-red-400'
+                          : 'bg-red-500/50'
+                        : index < 20
+                          ? 'bg-primary/45'
+                          : 'bg-background/15'
+                    } transition-colors duration-300`}
+                  />
+                ))}
+              </div>
+              <div className="mt-4 flex items-center justify-between border-t border-background/10 pt-4 text-[11px] text-background/50">
+                <span className="flex items-center gap-2">
+                  <Mic2 className="w-3.5 h-3.5" />
+                  {audioDevices.find((d) => d.deviceId === selectedMicId)?.label ||
+                    'System Microphone'}
+                </span>
+                <span>Mono · 48 kHz</span>
+              </div>
+            </div>
+          </section>
+
+          <section className="col-span-5 rounded-xl border border-border bg-secondary/60 p-5">
+            <div className="flex items-center justify-between">
+              <span className="eyebrow">Recording setup</span>
+              <span className="status-success">
+                <Check className="w-3 h-3" /> Ready
               </span>
             </div>
-          ) : (
-            <span className="font-mono text-[10px] uppercase tracking-wider px-2 py-0.5 rounded bg-[#f4f3f0] text-[#737373] border border-[#e2e0d8]">
-              Ready
-            </span>
-          )}
+
+            <label className="field-label mt-6">Meeting title</label>
+            <div className="field focus-within:ring-2 focus-within:ring-ring">
+              <input
+                type="text"
+                value={title}
+                onChange={(e) => setTitle(e.target.value)}
+                placeholder="Product Sync"
+                className="w-full h-full bg-transparent outline-none text-[13px]"
+                disabled={isRecording}
+              />
+            </div>
+
+            <label className="field-label mt-4">Capture source</label>
+            <div className="field relative">
+              <span className="flex items-center gap-2 text-foreground truncate max-w-[200px]">
+                <Monitor className="w-3.5 h-3.5 text-primary shrink-0" />
+                {audioDevices.find((d) => d.deviceId === selectedMicId)?.label || 'Entire screen'}
+              </span>
+              <ChevronDown className="w-3.5 h-3.5 text-subtle shrink-0" />
+              <select
+                className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
+                value={selectedMicId}
+                onChange={(e) => setSelectedMicId(e.target.value)}
+                disabled={isRecording}
+              >
+                {audioDevices.map((d) => (
+                  <option key={d.deviceId} value={d.deviceId}>
+                    {d.label}
+                  </option>
+                ))}
+              </select>
+            </div>
+
+            <label className="field-label mt-4">Transcription model</label>
+            <div className="field relative">
+              <span className="flex items-center gap-2 text-foreground truncate max-w-[200px]">
+                <Sparkles className="w-3.5 h-3.5 text-primary shrink-0" />
+                {models.find((m) => m.name === selectedModel)?.name || 'Gemini 3.6 Flash'}
+              </span>
+              <ChevronDown className="w-3.5 h-3.5 text-subtle shrink-0" />
+              <select
+                className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
+                value={selectedModel}
+                onChange={(e) => setSelectedModel(e.target.value)}
+                disabled={isRecording}
+              >
+                {models.map((m) => (
+                  <option key={m.name} value={m.name}>
+                    {m.name}
+                  </option>
+                ))}
+              </select>
+            </div>
+
+            <button
+              type="button"
+              onClick={() => {
+                if (isRecording) {
+                  stopRecording()
+                } else {
+                  startRecording(title, selectedMicId, selectedModel)
+                }
+              }}
+              className={`mt-6 flex w-full items-center justify-center gap-2 rounded-lg py-3 text-[13px] font-medium transition-colors ${
+                isRecording
+                  ? 'bg-red-500 text-white hover:bg-red-600'
+                  : 'bg-foreground text-background hover:opacity-90'
+              }`}
+            >
+              {isRecording ? (
+                <>
+                  <Square className="w-3.5 h-3.5 fill-current" /> Stop recording
+                </>
+              ) : (
+                <>
+                  <Play className="w-3.5 h-3.5 fill-current" /> Start recording
+                </>
+              )}
+            </button>
+          </section>
         </div>
 
-        {error && (
-          <Alert type="error" title="Recording Error" className="mb-6">
-            {error}
-          </Alert>
-        )}
-
-        {/* API Key Warning */}
-        {!hasApiKey && !isRecording && (
-          <div className="flex items-center gap-3 mb-6 px-4 py-3 rounded-lg bg-amber-50 border border-amber-200">
-            <AlertTriangle className="w-5 h-5 text-amber-600 shrink-0" />
-            <div className="flex-1">
-              <p className="text-sm font-medium text-amber-800">No API key configured</p>
-              <p className="text-xs text-amber-600 mt-0.5">
-                Recording will work, but transcription requires a Gemini API key.
-              </p>
-            </div>
-            <Link
-              to="/settings"
-              className="text-xs font-medium text-amber-700 hover:text-amber-900 underline shrink-0"
+        <section className="mt-10">
+          <div className="mb-4 flex items-center justify-between">
+            <h2 className="section-title">Recent recordings</h2>
+            <button
+              type="button"
+              onClick={() => navigate('/library')}
+              className="text-[13px] text-muted-foreground hover:text-foreground transition-colors"
             >
-              Settings
-            </Link>
+              View library
+            </button>
           </div>
-        )}
+          <div className="grid grid-cols-3 gap-4">
+            {recentRecordings.map((item, idx) => {
+              const tone = idx % 3 === 0 ? 'amber' : idx % 3 === 1 ? 'mint' : 'ink'
 
-        {!isRecording ? (
-          <form onSubmit={handleSubmit(onSubmit)} className="space-y-5">
-            <Input
-              label="Meeting Title"
-              placeholder="e.g. Design Critique & Planning"
-              error={errors.title?.message}
-              {...register('title')}
-            />
+              const dateObj = new Date(item.date || item.createdAt || 0)
+              const formattedDate =
+                !isNaN(dateObj.getTime()) && dateObj.getTime() > 0
+                  ? dateObj.toLocaleDateString(undefined, {
+                      month: 'short',
+                      day: 'numeric',
+                      hour: 'numeric',
+                      minute: '2-digit'
+                    })
+                  : 'Recent'
 
-            <DeviceSelect
-              devices={audioDevices}
-              selectedDeviceId={selectedMicId}
-              onSelectDevice={setSelectedMicId}
-              isBluetoothSelected={isBluetoothSelected}
-              isLoading={isDevicesLoading}
-            />
+              const totalMins = Math.floor((item.durationSeconds || 0) / 60)
+              const formattedDuration = totalMins > 0 ? `${totalMins} min` : '< 1 min'
+              const peopleCount = new Set((item.segments || []).map((s) => s.speaker)).size || 1
 
-            <ModelSelect
-              models={models}
-              selectedModel={selectedModel}
-              onSelectModel={setSelectedModel}
-              disabled={isProcessing}
-              isLoading={modelsLoading}
-            />
-
-            <div className="pt-2">
-              <Button
-                type="submit"
-                variant="primary"
-                size="lg"
-                className="w-full flex items-center justify-center gap-2"
-                disabled={isProcessing}
-              >
-                <Play className="w-4 h-4 fill-current" />
-                Start Recording
-              </Button>
-            </div>
-          </form>
-        ) : (
-          <div className="space-y-6 py-4 flex flex-col items-center">
-            <div className="flex items-center gap-3">
-              <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-md bg-[#faf9f6] border border-[#e2e0d8] text-xs text-[#1a1a1a]">
-                <Monitor className="w-3.5 h-3.5 text-[#737373]" /> Screen Capture
-              </div>
-              <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-md bg-[#faf9f6] border border-[#e2e0d8] text-xs text-[#1a1a1a]">
-                <Mic className="w-3.5 h-3.5 text-[#737373]" /> Dual Audio (Sys + Mic)
-              </div>
-            </div>
-
-            {selectedModelInfo && (
-              <div className="text-xs text-[#737373] font-mono">
-                Model: {selectedModelInfo.displayName}
+              return (
+                <article
+                  key={item.id}
+                  className="rounded-xl border border-border bg-card p-4 transition-colors hover:bg-secondary/45 cursor-pointer"
+                  onClick={() => navigate(`/player/${item.id}`)}
+                >
+                  <div className="flex items-center justify-between">
+                    <span className="text-[11px] text-subtle">{formattedDate}</span>
+                    <span
+                      className={`w-2 h-2 rounded-full ${tone === 'amber' ? 'bg-primary' : tone === 'mint' ? 'bg-success' : 'bg-muted-foreground'}`}
+                    />
+                  </div>
+                  <h3 className="mt-2 font-display text-[15px] font-medium text-foreground truncate">
+                    {item.title || 'Untitled'}
+                  </h3>
+                  <p className="mt-1 text-[12px] text-muted-foreground">
+                    {formattedDuration} · {peopleCount} speakers
+                  </p>
+                </article>
+              )
+            })}
+            {recentRecordings.length === 0 && (
+              <div className="col-span-3 text-center py-8 text-[13px] text-muted-foreground border border-dashed border-border rounded-xl">
+                No recent recordings found.
               </div>
             )}
-
-            <div className="w-full pt-4">
-              <Button
-                type="button"
-                variant="danger"
-                size="lg"
-                onClick={stopRecording}
-                className="w-full flex items-center justify-center gap-2 shadow-md"
-              >
-                <StopCircle className="w-5 h-5" />
-                Stop &amp; Save Recording
-              </Button>
-            </div>
           </div>
-        )}
-
-        {/* Processing overlay modal */}
-        {isProcessing && (
-          <div className="absolute inset-0 bg-white/90 backdrop-blur-sm flex flex-col items-center justify-center z-20 rounded-xl">
-            <Loader2 className="animate-spin text-[#2d2d2d] mb-3" size={36} />
-            <p className="text-sm font-semibold text-[#1a1a1a]">
-              Merging &amp; Saving Audio/Video...
-            </p>
-            <p className="text-xs text-[#737373] mt-1">
-              Please choose a location to save your WebM file.
-            </p>
-          </div>
-        )}
-      </Card>
+        </section>
+      </div>
     </div>
   )
 }

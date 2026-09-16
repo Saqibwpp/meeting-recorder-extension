@@ -21,10 +21,10 @@ function MainLayout(): React.ReactElement {
   }
 
   return (
-    <div className="h-screen flex flex-col bg-[#faf9f6] text-[#1a1a1a] overflow-hidden">
+    <div className="h-screen flex flex-col bg-background text-foreground overflow-hidden font-body antialiased">
       {/* Slim draggable title bar */}
       <div
-        className="h-[32px] shrink-0 flex items-center bg-[#faf9f6] border-b border-[#e2e0d8]/50"
+        className="h-[32px] shrink-0 flex items-center bg-transparent fixed top-0 w-full z-50"
         style={{ WebkitAppRegion: 'drag' } as React.CSSProperties}
       />
 
@@ -40,7 +40,7 @@ function MainLayout(): React.ReactElement {
 
         {/* Main content area */}
         <main
-          className="flex-1 flex flex-col overflow-hidden bg-white"
+          className="flex-1 flex flex-col overflow-hidden bg-transparent"
           style={{ WebkitAppRegion: 'no-drag' } as React.CSSProperties}
         >
           <Outlet />
@@ -55,9 +55,9 @@ export default function App(): React.ReactElement {
 
   if (loading) {
     return (
-      <div className="flex h-screen w-full items-center justify-center bg-[#faf9f6]">
+      <div className="flex h-screen w-full items-center justify-center bg-[#f3eee4]">
         <div className="flex flex-col items-center gap-3">
-          <Loader2 className="animate-spin w-6 h-6 text-[#2d2d2d]" />
+          <Loader2 className="animate-spin w-6 h-6 text-[#22211f]" />
           <span className="text-xs text-[#737373] font-mono">Initializing Embrace...</span>
         </div>
       </div>

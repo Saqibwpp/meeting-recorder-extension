@@ -33,6 +33,8 @@ export interface Meeting {
   status?: string
   errorMessage?: string
   usage?: UsageMetadata
+  isShared?: boolean
+  driveFileId?: string
 }
 
 export function normalizeMeeting(raw: Record<string, unknown>): Meeting {
