@@ -2,7 +2,7 @@ import axios from 'axios'
 import { auth } from './firebase'
 
 export const api = axios.create({
-  baseURL: import.meta.env.VITE_BACKEND_URL
+  baseURL: import.meta.env.VITE_BACKEND_URL || 'https://meeting-recorder-extension.vercel.app'
 })
 
 api.interceptors.request.use(

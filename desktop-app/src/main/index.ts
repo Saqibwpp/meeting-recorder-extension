@@ -374,7 +374,10 @@ app.whenReady().then(async () => {
 
   // Starts a local HTTP loopback server and opens web browser for Google/Email auth
   ipcMain.handle('login-with-browser', async () => {
-    const webBaseUrl = process.env.VITE_API_BASE_URL || 'http://localhost:3000'
+    const webBaseUrl =
+      (import.meta.env.MAIN_VITE_API_BASE_URL as string) ||
+      (process.env.VITE_API_BASE_URL as string) ||
+      'https://meeting-recorder-extension.vercel.app'
     const expectedState = crypto.randomBytes(16).toString('hex')
 
     return new Promise<string>((resolve, reject) => {
