@@ -11,12 +11,10 @@ export interface GeminiTranscriptionOptions {
   fallbackModels?: string[];
 }
 
-export const DEFAULT_PRIMARY_MODEL = 'gemini-3.1-flash-lite';
+export const DEFAULT_PRIMARY_MODEL = 'gemini-2.5-flash';
 export const DEFAULT_FALLBACK_MODELS = [
-  'gemini-3.1-flash-lite-preview',
-  'gemini-3.7-flash',
-  'gemini-3.8-flash',
-  'gemini-flash-latest'
+  'gemini-2.0-flash',
+  'gemini-1.5-flash'
 ];
 
 const SYSTEM_PROMPT = `You are an expert AI meeting notetaker and transcription engine.
