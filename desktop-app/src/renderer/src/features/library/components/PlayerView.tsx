@@ -11,7 +11,10 @@ import {
   WandSparkles,
   AlertCircle,
   RefreshCw,
-  AlertTriangle
+  AlertTriangle,
+  Cloud,
+  HardDrive,
+  ExternalLink
 } from 'lucide-react'
 import { useMeeting } from '../hooks/useMeeting'
 import { useRetryTranscription } from '../hooks/useRetryTranscription'
@@ -40,16 +43,21 @@ export const PlayerView: React.FC = () => {
   const { data: meeting, isLoading: loading } = useMeeting(meetingId)
   const { models, selectedModel, setSelectedModel, isLoading: modelsLoading } = useGeminiModels()
 
+  const hasLocal = Boolean(meeting?.videoPath)
+  const hasCloud = Boolean(meeting?.driveFileId)
+
   const [videoSource, setVideoSource] = useState<'local' | 'cloud' | 'error'>('local')
   const [currentMeetingId, setCurrentMeetingId] = useState(meeting?.id)
   const [activeTab, setActiveTab] = useState<'transcript' | 'notes'>('transcript')
+  const [copiedShare, setCopiedShare] = useState(false)
+  const [copiedExport, setCopiedExport] = useState(false)
 
   const { retryTranscription, isRetrying } = useRetryTranscription()
   const { isConfigured: hasApiKey } = useApiKey()
 
   if (meeting?.id !== currentMeetingId) {
     setCurrentMeetingId(meeting?.id)
-    setVideoSource('local')
+    setVideoSource(hasLocal ? 'local' : hasCloud ? 'cloud' : 'error')
   }
 
   const handleRetryTranscription = (): void => {
@@ -119,26 +127,74 @@ export const PlayerView: React.FC = () => {
   const wordCount =
     meeting.segments?.reduce((acc, seg) => acc + (seg.text.match(/\S+/g)?.length || 0), 0) || 0
 
+  const handleShare = async (): Promise<void> => {
+    try {
+      if (meeting.videoUrl) {
+        await navigator.clipboard.writeText(meeting.videoUrl)
+      } else if (meeting.driveFileId) {
+        await navigator.clipboard.writeText(
+          `https://drive.google.com/file/d/${meeting.driveFileId}/view`
+        )
+      } else {
+        const summaryText = meeting.summary ? `\n\nSummary:\n${meeting.summary}` : ''
+        await navigator.clipboard.writeText(`${meeting.title || 'Meeting Recording'}${summaryText}`)
+      }
+      setCopiedShare(true)
+      setTimeout(() => setCopiedShare(false), 2000)
+    } catch (err) {
+      console.error('Failed to copy share link:', err)
+    }
+  }
+
+  const handleExport = async (): Promise<void> => {
+    try {
+      const lines: string[] = []
+      lines.push(`# ${meeting.title || 'Meeting Notes'}`)
+      lines.push(`Date: ${formattedDate}${formattedTime ? ` ${formattedTime}` : ''}`)
+      lines.push(`Duration: ${formattedDuration}`)
+      if (meeting.summary) {
+        lines.push(`\n## Summary\n${meeting.summary}`)
+      }
+      if (meeting.actionItems && meeting.actionItems.length > 0) {
+        lines.push('\n## Action Items')
+        meeting.actionItems.forEach((item) => {
+          lines.push(`- [ ] ${item}`)
+        })
+      }
+      if (meeting.segments && meeting.segments.length > 0) {
+        lines.push('\n## Transcript')
+        meeting.segments.forEach((seg) => {
+          lines.push(`[${seg.startTime || '00:00'}] ${seg.speaker || 'Speaker'}: ${seg.text}`)
+        })
+      }
+      await navigator.clipboard.writeText(lines.join('\n'))
+      setCopiedExport(true)
+      setTimeout(() => setCopiedExport(false), 2000)
+    } catch (err) {
+      console.error('Failed to export notes:', err)
+    }
+  }
+
   return (
-    <div className="flex flex-col h-full bg-background text-foreground overflow-y-auto">
+    <div className="flex flex-col h-full bg-background text-foreground overflow-hidden">
       <TopBar
         title={meeting.title || 'Untitled Meeting'}
         context={`${formattedDate}${formattedTime ? `, ${formattedTime}` : ''}`}
         actions={
           <>
-            <ActionButton muted icon={Share2} onClick={() => alert('Share feature coming soon')}>
-              Share
+            <ActionButton muted icon={copiedShare ? Check : Share2} onClick={handleShare}>
+              {copiedShare ? 'Link Copied!' : 'Share'}
             </ActionButton>
-            <ActionButton icon={Download} onClick={() => alert('Export notes feature coming soon')}>
-              Export
+            <ActionButton icon={copiedExport ? Check : Download} onClick={handleExport}>
+              {copiedExport ? 'Notes Copied!' : 'Export'}
             </ActionButton>
           </>
         }
       />
 
-      <div className="grid min-h-[calc(100vh-96px)] grid-cols-[minmax(0,1.35fr)_minmax(340px,0.65fr)]">
+      <div className="flex-1 grid grid-cols-[minmax(0,1.35fr)_minmax(360px,0.65fr)] min-h-0 overflow-hidden">
         {/* Left Column */}
-        <div className="border-r border-border">
+        <div className="h-full overflow-y-auto border-r border-border flex flex-col">
           <div className="border-b border-border px-7 py-5">
             <button
               type="button"
@@ -162,36 +218,154 @@ export const PlayerView: React.FC = () => {
                 </div>
               </div>
 
-              {meeting.status === 'transcribed' && (
+              {meeting.status === 'processing' ? (
+                <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-amber-500/10 text-amber-600 text-[11px] font-medium">
+                  <Loader2 className="w-3 h-3 animate-spin" /> Transcribing
+                </span>
+              ) : meeting.status === 'completed' || meeting.status === 'transcribed' ? (
                 <span className="status-success">
                   <Check className="w-3 h-3" /> Complete
                 </span>
-              )}
+              ) : null}
             </div>
           </div>
 
           <div className="p-7">
+            {/* Playback Source Header & Tags */}
+            <div className="mb-3 flex items-center justify-between">
+              {/* Storage / Backup Tag */}
+              <div className="flex items-center gap-2">
+                {hasCloud ? (
+                  <div className="flex items-center gap-1.5">
+                    <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 text-[11px] font-medium border border-emerald-500/20">
+                      <Cloud className="w-3.5 h-3.5" /> Backed up to Drive
+                    </span>
+                    {meeting.driveFileId && (
+                      <a
+                        href={`https://drive.google.com/file/d/${meeting.driveFileId}/view`}
+                        target="_blank"
+                        rel="noreferrer"
+                        className="inline-flex items-center gap-1 text-[11px] text-muted-foreground hover:text-foreground transition-colors px-1.5 py-0.5 rounded hover:bg-secondary"
+                        title="Open in Google Drive"
+                      >
+                        <ExternalLink className="w-3 h-3" />
+                      </a>
+                    )}
+                  </div>
+                ) : hasLocal ? (
+                  <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-secondary text-muted-foreground text-[11px] font-medium border border-border">
+                    <HardDrive className="w-3.5 h-3.5" /> Local storage only
+                  </span>
+                ) : null}
+              </div>
+
+              {/* Source Switcher Toggle */}
+              {hasLocal && hasCloud ? (
+                <div className="flex items-center bg-secondary/80 p-0.5 rounded-lg border border-border text-[11px] font-medium">
+                  <button
+                    type="button"
+                    onClick={() => setVideoSource('local')}
+                    className={`flex items-center gap-1 px-2.5 py-1 rounded-md transition-all ${
+                      videoSource === 'local'
+                        ? 'bg-card text-foreground shadow-xs font-semibold'
+                        : 'text-muted-foreground hover:text-foreground'
+                    }`}
+                  >
+                    <HardDrive className="w-3 h-3" />
+                    <span>Local</span>
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setVideoSource('cloud')}
+                    className={`flex items-center gap-1 px-2.5 py-1 rounded-md transition-all ${
+                      videoSource === 'cloud'
+                        ? 'bg-card text-foreground shadow-xs font-semibold'
+                        : 'text-muted-foreground hover:text-foreground'
+                    }`}
+                  >
+                    <Cloud className="w-3 h-3" />
+                    <span>Drive</span>
+                  </button>
+                </div>
+              ) : hasLocal ? (
+                <span className="inline-flex items-center gap-1.5 text-[11px] text-muted-foreground font-medium">
+                  <HardDrive className="w-3.5 h-3.5 text-subtle" />
+                  Playing from Local
+                </span>
+              ) : hasCloud ? (
+                <span className="inline-flex items-center gap-1.5 text-[11px] text-emerald-600 font-medium">
+                  <Cloud className="w-3.5 h-3.5" />
+                  Playing from Drive
+                </span>
+              ) : null}
+            </div>
+
             {/* Video Player */}
             <div className="relative aspect-video overflow-hidden rounded-xl bg-foreground shadow-inset">
               {videoSource === 'local' && meeting.videoPath ? (
-                <video
-                  ref={videoRef}
-                  src={`local://${meeting.videoPath}`}
-                  className="w-full h-full object-contain bg-black/10"
-                  controls
-                  controlsList="nodownload"
-                  onError={() => setVideoSource('cloud')}
-                />
+                <>
+                  <video
+                    key={meeting.videoPath}
+                    ref={videoRef}
+                    src={`local://${meeting.videoPath}`}
+                    className="w-full h-full object-contain bg-black/10"
+                    controls
+                    controlsList="nodownload"
+                    onError={() => {
+                      if (hasCloud) {
+                        setVideoSource('cloud')
+                      } else {
+                        setVideoSource('error')
+                      }
+                    }}
+                  />
+                  {meeting.status === 'processing' && (
+                    <div className="absolute top-3 right-3 flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-black/60 backdrop-blur-md text-amber-400 text-[10px] font-medium pointer-events-none">
+                      <Loader2 className="w-3 h-3 animate-spin text-amber-400" />
+                      <span>Transcribing in background...</span>
+                    </div>
+                  )}
+                </>
               ) : videoSource === 'cloud' && meeting.driveFileId ? (
                 <iframe
                   src={`https://drive.google.com/file/d/${meeting.driveFileId}/preview`}
                   className="w-full h-full border-0 bg-black/10"
                   allow="autoplay"
                 />
+              ) : meeting.status === 'processing' ? (
+                <div className="absolute inset-0 flex flex-col items-center justify-center text-background/80 p-6 text-center">
+                  <Loader2 className="w-8 h-8 mb-3 animate-spin text-primary" />
+                  <p className="text-[14px] font-semibold text-background">
+                    Processing Recording...
+                  </p>
+                  <p className="text-[12px] text-background/60 mt-1">
+                    Generating transcript and finalizing media.
+                  </p>
+                </div>
               ) : (
-                <div className="absolute inset-0 flex flex-col items-center justify-center text-background/50">
+                <div className="absolute inset-0 flex flex-col items-center justify-center text-background/50 p-6 text-center">
                   <AlertCircle className="w-8 h-8 mb-2 opacity-50" />
                   <p className="text-[13px] font-medium">Video not available locally or in cloud</p>
+                  <div className="mt-3 flex items-center gap-2">
+                    {meeting.videoPath && (
+                      <button
+                        type="button"
+                        onClick={() => setVideoSource('local')}
+                        className="px-3 py-1.5 bg-background/15 hover:bg-background/25 text-background rounded-md text-[11px] font-medium transition-colors"
+                      >
+                        Retry Local Player
+                      </button>
+                    )}
+                    {hasCloud && (
+                      <button
+                        type="button"
+                        onClick={() => setVideoSource('cloud')}
+                        className="px-3 py-1.5 bg-primary hover:bg-primary/90 text-primary-foreground rounded-md text-[11px] font-medium transition-colors"
+                      >
+                        Play from Drive
+                      </button>
+                    )}
+                  </div>
                 </div>
               )}
             </div>
@@ -233,7 +407,7 @@ export const PlayerView: React.FC = () => {
         </div>
 
         {/* Right Column (Transcript Sidebar) */}
-        <aside className="bg-card h-full flex flex-col">
+        <aside className="bg-card h-full flex flex-col min-h-0 overflow-hidden">
           <div className="flex h-16 items-center justify-between border-b border-border px-5 shrink-0">
             <div className="flex gap-5">
               <button

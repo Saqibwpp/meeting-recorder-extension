@@ -160,7 +160,11 @@ export async function connectDrive(): Promise<boolean> {
 /**
  * Upload a local file to Google Drive.
  */
-export async function uploadToDrive(filePath: string, title: string): Promise<string | null> {
+export async function uploadToDrive(
+  filePath: string,
+  title: string,
+  makePublic: boolean = true
+): Promise<string | null> {
   try {
     const isConnected = await checkDriveStatus()
     if (!isConnected) {
@@ -169,7 +173,7 @@ export async function uploadToDrive(filePath: string, title: string): Promise<st
 
     const drive = google.drive({ version: 'v3', auth: oauth2Client })
 
-    console.log(`[Drive] Uploading ${filePath} as "${title}"...`)
+    console.log(`[Drive] Uploading ${filePath} as "${title}" (makePublic: ${makePublic})...`)
 
     // We create a generic "Embrace AI" folder to keep things tidy
     let folderId: string | null | undefined = null
@@ -211,6 +215,22 @@ export async function uploadToDrive(filePath: string, title: string): Promise<st
       media: media,
       fields: 'id, webViewLink'
     })
+
+    // Set permission to anyone with link as reader if makePublic is enabled
+    if (file.data.id && makePublic) {
+      try {
+        await drive.permissions.create({
+          fileId: file.data.id,
+          requestBody: {
+            role: 'reader',
+            type: 'anyone'
+          }
+        })
+        console.log('[Drive] Read permission granted for preview')
+      } catch (permErr) {
+        console.warn('[Drive] Note: Could not set public permission:', permErr)
+      }
+    }
 
     console.log('[Drive] Upload complete:', file.data.webViewLink)
     return file.data.webViewLink || null

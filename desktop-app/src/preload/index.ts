@@ -45,14 +45,15 @@ const api = {
   connectDrive: (): Promise<boolean> => ipcRenderer.invoke('connect-drive'),
   disconnectDrive: (): Promise<void> => ipcRenderer.invoke('disconnect-drive'),
   checkDriveStatus: (): Promise<boolean> => ipcRenderer.invoke('check-drive-status'),
-  uploadToDrive: (filePath: string, title: string): Promise<string | null> =>
-    ipcRenderer.invoke('upload-to-drive', filePath, title),
+  uploadToDrive: (filePath: string, title: string, makePublic?: boolean): Promise<string | null> =>
+    ipcRenderer.invoke('upload-to-drive', filePath, title, makePublic),
   getLaunchAtLogin: (): Promise<boolean> => ipcRenderer.invoke('get-launch-at-login'),
   setLaunchAtLogin: (enabled: boolean): Promise<boolean> =>
     ipcRenderer.invoke('set-launch-at-login', enabled),
 
   // Tray & Recording Synchronization
-  startRecordingFromTray: (title?: string): void => ipcRenderer.send('tray-start-recording', title),
+  startRecordingFromTray: (title?: string, model?: string): void =>
+    ipcRenderer.send('tray-start-recording', { title, model }),
   stopRecordingFromTray: (): void => ipcRenderer.send('tray-stop-recording'),
   sendRecordingState: (state: RecordingState): void =>
     ipcRenderer.send('broadcast-recording-state', state),
@@ -61,8 +62,13 @@ const api = {
     ipcRenderer.on('recording-state-changed', handler)
     return () => ipcRenderer.removeListener('recording-state-changed', handler)
   },
-  onTriggerStartRecording: (callback: (title?: string) => void): (() => void) => {
-    const handler = (_event: unknown, title?: string): void => callback(title)
+  onTriggerStartRecording: (
+    callback: (payload?: { title?: string; model?: string } | string) => void
+  ): (() => void) => {
+    const handler = (
+      _event: unknown,
+      payload?: { title?: string; model?: string } | string
+    ): void => callback(payload)
     ipcRenderer.on('trigger-start-recording', handler)
     return () => ipcRenderer.removeListener('trigger-start-recording', handler)
   },

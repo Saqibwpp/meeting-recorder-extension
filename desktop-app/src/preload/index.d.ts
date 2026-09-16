@@ -41,16 +41,22 @@ declare global {
       connectDrive: () => Promise<boolean>
       disconnectDrive: () => Promise<void>
       checkDriveStatus: () => Promise<boolean>
-      uploadToDrive: (filePath: string, title: string) => Promise<string | null>
+      uploadToDrive: (
+        filePath: string,
+        title: string,
+        makePublic?: boolean
+      ) => Promise<string | null>
       getLaunchAtLogin: () => Promise<boolean>
       setLaunchAtLogin: (enabled: boolean) => Promise<boolean>
 
       // Tray & Recording Synchronization
-      startRecordingFromTray: (title?: string) => void
+      startRecordingFromTray: (title?: string, model?: string) => void
       stopRecordingFromTray: () => void
       sendRecordingState: (state: RecordingState) => void
       onRecordingStateChanged: (callback: (state: RecordingState) => void) => () => void
-      onTriggerStartRecording: (callback: (title?: string) => void) => () => void
+      onTriggerStartRecording: (
+        callback: (payload?: { title?: string; model?: string } | string) => void
+      ) => () => void
       onTriggerStopRecording: (callback: () => void) => () => void
       onMeetingDetected: (callback: () => void) => () => void
       openMainWindow: (route?: string) => void

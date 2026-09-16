@@ -1,6 +1,16 @@
 import React, { useState, useMemo } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { Video, Search, ChevronDown, Play, Loader2, Calendar, Users } from 'lucide-react'
+import {
+  Video,
+  Search,
+  ChevronDown,
+  Play,
+  Loader2,
+  Calendar,
+  Users,
+  Cloud,
+  HardDrive
+} from 'lucide-react'
 import { TopBar } from '../../../components/layout/TopBar'
 import { ActionButton } from '../../../components/ui/ActionButton'
 import { useMeetings } from '../hooks/useMeetings'
@@ -190,10 +200,20 @@ export const LibraryView: React.FC = () => {
                         <Calendar className="w-3 h-3" />
                         {formattedDate}
                       </span>
-                      <span className="flex items-center gap-1.5">
-                        <Users className="w-3 h-3" />
-                        {peopleCount} {peopleCount === 1 ? 'speaker' : 'speakers'}
-                      </span>
+                      {item.driveFileId ? (
+                        <span className="inline-flex items-center gap-1 text-[10px] font-medium text-emerald-600 dark:text-emerald-400 bg-emerald-500/10 px-1.5 py-0.5 rounded border border-emerald-500/20">
+                          <Cloud className="w-2.5 h-2.5" /> Drive
+                        </span>
+                      ) : item.videoPath ? (
+                        <span className="inline-flex items-center gap-1 text-[10px] font-medium text-muted-foreground bg-secondary px-1.5 py-0.5 rounded border border-border">
+                          <HardDrive className="w-2.5 h-2.5" /> Local
+                        </span>
+                      ) : (
+                        <span className="flex items-center gap-1.5">
+                          <Users className="w-3 h-3" />
+                          {peopleCount} {peopleCount === 1 ? 'speaker' : 'speakers'}
+                        </span>
+                      )}
                     </div>
                   </div>
                 </button>

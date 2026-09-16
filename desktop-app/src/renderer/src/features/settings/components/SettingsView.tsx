@@ -10,7 +10,8 @@ import {
   Loader2,
   RefreshCw,
   Cloud,
-  FolderOpen
+  FolderOpen,
+  Link2
 } from 'lucide-react'
 import { useApiKey } from '../../../hooks/useApiKey'
 import { useGeminiModels } from '../../../hooks/useGeminiModels'
@@ -33,6 +34,14 @@ export const SettingsView: React.FC = () => {
   const [showKey, setShowKey] = useState(false)
   const [isSaving, setIsSaving] = useState(false)
   const [isRefreshing, setIsRefreshing] = useState(false)
+  const [isLinkSharing, setIsLinkSharing] = useState<boolean>(() => {
+    return localStorage.getItem('drive_link_sharing') !== 'false'
+  })
+
+  const handleToggleLinkSharing = (enabled: boolean): void => {
+    setIsLinkSharing(enabled)
+    localStorage.setItem('drive_link_sharing', enabled ? 'true' : 'false')
+  }
 
   const handleSave = (): void => {
     setIsSaving(true)
@@ -171,7 +180,7 @@ export const SettingsView: React.FC = () => {
             {/* Cloud Backup */}
             <div>
               <h2 className="text-[15px] font-bold text-foreground mb-3">Cloud backup</h2>
-              <div className="bg-card border border-border rounded-xl p-5 shadow-sm">
+              <div className="bg-card border border-border rounded-xl p-5 shadow-sm space-y-4">
                 <div className="flex items-center justify-between">
                   <div className="flex items-center gap-3.5">
                     <div className="w-9 h-9 rounded-lg flex items-center justify-center shrink-0 bg-secondary">
@@ -209,6 +218,38 @@ export const SettingsView: React.FC = () => {
                       )}
                     </button>
                   </div>
+                </div>
+
+                {/* Link Sharing Toggle (Unlisted) */}
+                <div className="pt-3 border-t border-border flex items-center justify-between">
+                  <div className="flex items-start gap-3">
+                    <div className="w-8 h-8 rounded-lg bg-secondary flex items-center justify-center shrink-0 mt-0.5">
+                      <Link2 className="w-3.5 h-3.5 text-subtle" />
+                    </div>
+                    <div>
+                      <h4 className="text-[13px] font-semibold text-foreground">
+                        Link-accessible cloud playback
+                      </h4>
+                      <p className="text-[11px] text-muted-foreground mt-0.5 max-w-[340px]">
+                        Sets uploaded Drive recordings as unlisted (viewable via link) for seamless
+                        in-app preview and easy team sharing.
+                      </p>
+                    </div>
+                  </div>
+
+                  <button
+                    type="button"
+                    onClick={() => handleToggleLinkSharing(!isLinkSharing)}
+                    className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors focus:outline-none shrink-0 ${
+                      isLinkSharing ? 'bg-foreground' : 'bg-secondary border border-border'
+                    }`}
+                  >
+                    <span
+                      className={`inline-block h-4 w-4 transform rounded-full bg-background transition-transform ${
+                        isLinkSharing ? 'translate-x-6' : 'translate-x-1'
+                      }`}
+                    />
+                  </button>
                 </div>
               </div>
             </div>

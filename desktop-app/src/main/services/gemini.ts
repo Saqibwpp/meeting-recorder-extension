@@ -57,18 +57,6 @@ const MODEL_BLOCKLIST = [
   'live'
 ]
 
-/**
- * Priority order for sorting models. Lower index = higher priority.
- */
-const MODEL_PRIORITY: string[] = [
-  'gemini-3.6-flash',
-  'gemini-3.5-flash',
-  'gemini-3.1-flash-lite',
-  'gemini-2.5-flash',
-  'gemini-2.0-flash',
-  'gemini-1.5-flash'
-]
-
 export async function fetchAvailableModels(apiKey: string): Promise<GeminiModel[]> {
   const cleanKey = apiKey.trim()
   const url = `https://generativelanguage.googleapis.com/v1beta/models?key=${encodeURIComponent(cleanKey)}`
@@ -115,16 +103,6 @@ export async function fetchAvailableModels(apiKey: string): Promise<GeminiModel[
       inputTokenLimit: typeof m.inputTokenLimit === 'number' ? m.inputTokenLimit : 0,
       outputTokenLimit: typeof m.outputTokenLimit === 'number' ? m.outputTokenLimit : 0
     }))
-
-  // Sort by priority: known recommended models first, then alphabetically
-  filtered.sort((a: GeminiModel, b: GeminiModel) => {
-    const aPriority = MODEL_PRIORITY.indexOf(a.name)
-    const bPriority = MODEL_PRIORITY.indexOf(b.name)
-    const aRank = aPriority === -1 ? 999 : aPriority
-    const bRank = bPriority === -1 ? 999 : bPriority
-    if (aRank !== bRank) return aRank - bRank
-    return a.displayName.localeCompare(b.displayName)
-  })
 
   return filtered
 }

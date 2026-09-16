@@ -8,6 +8,7 @@ import { tmpdir } from 'os'
 import http from 'http'
 import crypto from 'crypto'
 import { AddressInfo } from 'net'
+import { pathToFileURL } from 'url'
 import ffmpeg from 'fluent-ffmpeg'
 import ffmpegPath from 'ffmpeg-static'
 import ffprobePath from 'ffprobe-static'
@@ -35,7 +36,17 @@ let systemAudioPath: string | null = null
 
 // Register local scheme as privileged (must be before app is ready)
 protocol.registerSchemesAsPrivileged([
-  { scheme: 'local', privileges: { supportFetchAPI: true, bypassCSP: true, stream: true } }
+  {
+    scheme: 'local',
+    privileges: {
+      standard: true,
+      secure: true,
+      supportFetchAPI: true,
+      bypassCSP: true,
+      stream: true,
+      corsEnabled: true
+    }
+  }
 ])
 
 let mainWindow: BrowserWindow | null = null
@@ -271,8 +282,31 @@ app.whenReady().then(async () => {
 
   // Register local:// protocol to allow loading local files securely
   protocol.handle('local', (request) => {
-    return net.fetch('file://' + request.url.slice('local://'.length))
+    try {
+      // Strip scheme and any leading slashes (e.g. local:///Users/... -> Users/...)
+      const raw = request.url.replace(/^local:\/*/, '')
+      const decoded = decodeURIComponent(raw)
+      // On macOS/Linux, guarantee single leading slash
+      const filePath = process.platform === 'win32' ? decoded : '/' + decoded
+      return net.fetch(pathToFileURL(filePath).toString())
+    } catch (err) {
+      console.error('[Main] local protocol fetch error:', err)
+      return new Response('File not found', { status: 404 })
+    }
   })
+
+  // Allow Google Drive preview iframes without CSP/X-Frame-Options blocking
+  session.defaultSession.webRequest.onHeadersReceived(
+    { urls: ['https://drive.google.com/*', 'https://*.googleusercontent.com/*'] },
+    (details, callback) => {
+      const responseHeaders = { ...(details.responseHeaders || {}) }
+      delete responseHeaders['x-frame-options']
+      delete responseHeaders['X-Frame-Options']
+      delete responseHeaders['content-security-policy']
+      delete responseHeaders['Content-Security-Policy']
+      callback({ cancel: false, responseHeaders })
+    }
+  )
 
   // Handle getDisplayMedia requests — screen video + loopback audio (Windows fallback)
   session.defaultSession.setDisplayMediaRequestHandler((_request, callback) => {
@@ -440,10 +474,13 @@ app.whenReady().then(async () => {
     return checkDriveStatus()
   })
 
-  ipcMain.handle('upload-to-drive', async (_event, filePath: string, title: string) => {
-    const { uploadToDrive } = await import('./services/drive')
-    return uploadToDrive(filePath, title)
-  })
+  ipcMain.handle(
+    'upload-to-drive',
+    async (_event, filePath: string, title: string, makePublic?: boolean) => {
+      const { uploadToDrive } = await import('./services/drive')
+      return uploadToDrive(filePath, title, makePublic)
+    }
+  )
 
   // ==========================================
   // 6. IPC HANDLERS: AUDIO CAPTURE & RECORDING
@@ -705,12 +742,15 @@ app.whenReady().then(async () => {
     return app.getLoginItemSettings().openAtLogin
   })
 
-  ipcMain.on('tray-start-recording', (_event, title?: string) => {
-    if (!mainWindow) {
-      createMainWindow(false)
+  ipcMain.on(
+    'tray-start-recording',
+    (_event, payload?: string | { title?: string; model?: string }) => {
+      if (!mainWindow) {
+        createMainWindow(false)
+      }
+      mainWindow?.webContents.send('trigger-start-recording', payload)
     }
-    mainWindow?.webContents.send('trigger-start-recording', title)
-  })
+  )
 
   ipcMain.on('tray-stop-recording', () => {
     mainWindow?.webContents.send('trigger-stop-recording')

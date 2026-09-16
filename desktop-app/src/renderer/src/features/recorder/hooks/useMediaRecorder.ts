@@ -208,9 +208,12 @@ export function useMediaRecorder(): MediaRecorderState {
                       const isDriveConnected = await window.api.checkDriveStatus()
                       if (isDriveConnected) {
                         console.log('[useMediaRecorder] Auto-uploading to Google Drive...')
+                        const isLinkSharingEnabled =
+                          localStorage.getItem('drive_link_sharing') !== 'false'
                         const driveUrl = await window.api.uploadToDrive(
                           paths.videoPath,
-                          currentTitleRef.current
+                          currentTitleRef.current,
+                          isLinkSharingEnabled
                         )
                         if (driveUrl && backendDocId) {
                           await api.patch('/api/meetings', {
@@ -330,13 +333,17 @@ export function useMediaRecorder(): MediaRecorderState {
 
   // Listen for Tray IPC triggers
   useEffect(() => {
-    const unsubStart = window.api?.onTriggerStartRecording?.((trayTitle) => {
+    const unsubStart = window.api?.onTriggerStartRecording?.((payload) => {
       if (!isRecording) {
-        startRecording(
-          trayTitle || 'Meeting Recording',
-          '',
-          selectedModelRef.current || 'gemini-2.5-flash'
-        )
+        const title = typeof payload === 'string' ? payload : payload?.title || 'Meeting Recording'
+        const passedModel = typeof payload === 'object' ? payload?.model : undefined
+        const activeModel =
+          passedModel ||
+          localStorage.getItem('selected_gemini_model') ||
+          selectedModelRef.current ||
+          ''
+
+        startRecording(title, '', activeModel)
       }
     })
 

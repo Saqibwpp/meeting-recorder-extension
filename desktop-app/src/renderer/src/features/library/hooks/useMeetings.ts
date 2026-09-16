@@ -37,6 +37,17 @@ export interface Meeting {
   driveFileId?: string
 }
 
+export function extractDriveFileId(urlOrId?: string): string | undefined {
+  if (!urlOrId) return undefined
+  // If already an alphanumeric ID without slash or dot
+  if (!urlOrId.includes('/') && !urlOrId.includes('.')) return urlOrId
+  const match =
+    urlOrId.match(/\/file\/d\/([a-zA-Z0-9_-]+)/) ||
+    urlOrId.match(/[?&]id=([a-zA-Z0-9_-]+)/) ||
+    urlOrId.match(/\/d\/([a-zA-Z0-9_-]+)/)
+  return match ? match[1] : undefined
+}
+
 export function normalizeMeeting(raw: Record<string, unknown>): Meeting {
   const transcript = (raw.transcript as Record<string, unknown>) || {}
 
@@ -60,6 +71,10 @@ export function normalizeMeeting(raw: Record<string, unknown>): Meeting {
   const rawSegments =
     (raw.segments as TranscriptSegment[]) || (transcript.segments as TranscriptSegment[]) || []
 
+  const rawVideoUrl = (raw.videoUrl as string) || (transcript.videoUrl as string) || undefined
+  const rawDriveId = (raw.driveFileId as string) || (transcript.driveFileId as string) || undefined
+  const driveFileId = rawDriveId || extractDriveFileId(rawVideoUrl)
+
   return {
     id: (raw.id as string) || '',
     title: (raw.title as string) || 'Untitled Meeting',
@@ -67,9 +82,11 @@ export function normalizeMeeting(raw: Record<string, unknown>): Meeting {
     createdAt: (raw.createdAt as string) || rawDate,
     startTime: typeof raw.startTime === 'number' ? raw.startTime : undefined,
     durationSeconds: rawDuration,
-    videoPath: (raw.videoPath as string) || undefined,
-    audioPath: (raw.audioPath as string) || undefined,
-    audioUrl: (raw.audioUrl as string) || undefined,
+    videoPath: (raw.videoPath as string) || (transcript.videoPath as string) || undefined,
+    audioPath: (raw.audioPath as string) || (transcript.audioPath as string) || undefined,
+    audioUrl: (raw.audioUrl as string) || (transcript.audioUrl as string) || undefined,
+    videoUrl: rawVideoUrl,
+    driveFileId,
     summary: rawSummary,
     actionItems: rawActionItems,
     segments: rawSegments,

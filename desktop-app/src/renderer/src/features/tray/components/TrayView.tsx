@@ -5,7 +5,13 @@ import { useGeminiModels } from '../../../hooks/useGeminiModels'
 
 export const TrayView: React.FC = () => {
   const { user } = useAuth()
-  const { selectedModelInfo } = useGeminiModels()
+  const {
+    models,
+    selectedModel,
+    setSelectedModel,
+    selectedModelInfo,
+    isLoading: modelsLoading
+  } = useGeminiModels()
 
   const [title, setTitle] = useState('')
   const [isRecording, setIsRecording] = useState(false)
@@ -43,7 +49,7 @@ export const TrayView: React.FC = () => {
 
   const handleStart = (): void => {
     setMeetingDetected(false)
-    window.api?.startRecordingFromTray(title || 'Quick Meeting')
+    window.api?.startRecordingFromTray(title || 'Quick Meeting', selectedModel)
   }
 
   const handleStop = (): void => {
@@ -100,9 +106,9 @@ export const TrayView: React.FC = () => {
       )}
 
       {/* Main Content */}
-      <div className="flex-1 p-5 flex flex-col items-center justify-between text-center">
+      <div className="flex-1 p-5 flex flex-col items-center justify-center text-center">
         {!user ? (
-          <div className="my-auto flex flex-col items-center gap-3">
+          <div className="flex flex-col items-center gap-3">
             <div className="w-10 h-10 rounded-xl bg-secondary grid place-items-center text-subtle">
               <Video className="w-5 h-5" />
             </div>
@@ -122,17 +128,17 @@ export const TrayView: React.FC = () => {
           </div>
         ) : isRecording ? (
           /* Active Recording State */
-          <div className="w-full my-auto flex flex-col items-center gap-4">
+          <div className="w-full flex flex-col items-center justify-center gap-5">
             <div className="flex items-center gap-2 px-3 py-1 rounded-full bg-red-500/10 text-red-500 text-[11px] font-bold uppercase tracking-wider">
               <span className="w-2 h-2 rounded-full bg-red-500 animate-pulse" />
               Recording active
             </div>
 
-            <div className="text-[34px] font-bold font-display tracking-tight text-foreground">
+            <div className="text-[36px] font-bold font-display tracking-tight text-foreground">
               {formatTimer(elapsedSeconds)}
             </div>
 
-            <p className="text-[12px] text-muted-foreground truncate max-w-[240px] px-2">
+            <p className="text-[12px] text-muted-foreground truncate max-w-[240px] px-2 text-center">
               {title || 'Meeting Recording'}
             </p>
 
@@ -147,14 +153,14 @@ export const TrayView: React.FC = () => {
           </div>
         ) : (
           /* Idle Ready State */
-          <div className="w-full my-auto flex flex-col items-center gap-4">
-            <div className="w-full">
+          <div className="w-full flex flex-col items-center justify-center gap-5">
+            <div className="w-full max-w-[260px]">
               <input
                 type="text"
                 value={title}
                 onChange={(e) => setTitle(e.target.value)}
                 placeholder="Meeting Title..."
-                className="w-full h-9 bg-background border border-border rounded-lg px-3 text-[12px] text-foreground placeholder:text-subtle focus:outline-none focus:ring-1 focus:ring-foreground"
+                className="w-full h-9 bg-background/80 border border-border rounded-xl px-3 text-[12px] text-foreground placeholder:text-subtle text-center focus:outline-none focus:ring-1 focus:ring-foreground transition-all shadow-xs"
               />
             </div>
 
@@ -163,17 +169,41 @@ export const TrayView: React.FC = () => {
               onClick={handleStart}
               className="w-18 h-18 rounded-full bg-foreground hover:opacity-90 text-background flex items-center justify-center shadow-lg transition-transform hover:scale-105 active:scale-95 group"
             >
-              <div className="w-14 h-14 rounded-full border border-background/20 flex items-center justify-center">
+              <div className="w-14 h-14 rounded-full border border-background/25 flex items-center justify-center">
                 <Play className="w-6 h-6 fill-current ml-0.5" />
               </div>
             </button>
 
-            <div className="leading-tight">
-              <p className="text-[13px] font-semibold text-foreground">Start Recording</p>
-              <div className="flex items-center justify-center gap-1.5 mt-1 text-[11px] text-subtle">
-                <Sparkles className="w-3 h-3 text-primary" />
-                <span>{selectedModelInfo?.displayName || 'Gemini 3.6 Flash'}</span>
-              </div>
+            <div className="flex flex-col items-center gap-2">
+              <p className="text-[13px] font-semibold text-foreground tracking-tight">
+                Start Recording
+              </p>
+              {models.length > 0 ? (
+                <div className="flex items-center justify-center gap-1.5 px-3 py-1 rounded-full border border-border bg-secondary/80 hover:bg-secondary text-foreground text-[11px] font-medium transition-colors shadow-xs max-w-[240px]">
+                  <Sparkles className="w-3.5 h-3.5 text-primary shrink-0" />
+                  <select
+                    value={selectedModel}
+                    onChange={(e) => setSelectedModel(e.target.value)}
+                    disabled={modelsLoading}
+                    className="bg-transparent border-0 text-foreground text-[11px] font-medium outline-none cursor-pointer truncate max-w-[190px]"
+                  >
+                    {models.map((m) => (
+                      <option key={m.name} value={m.name} className="bg-card text-foreground">
+                        {m.displayName}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+              ) : (
+                <div className="flex items-center justify-center gap-1.5 px-3 py-1 rounded-full border border-border bg-secondary/60 text-subtle text-[11px] font-medium shadow-xs">
+                  <Sparkles className="w-3.5 h-3.5 text-primary shrink-0" />
+                  <span>
+                    {selectedModelInfo?.displayName ||
+                      selectedModel ||
+                      (modelsLoading ? 'Loading models...' : 'Gemini AI')}
+                  </span>
+                </div>
+              )}
             </div>
           </div>
         )}
