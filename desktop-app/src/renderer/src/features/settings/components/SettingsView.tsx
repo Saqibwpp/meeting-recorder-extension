@@ -303,6 +303,34 @@ export const SettingsView: React.FC = () => {
                 </div>
               </div>
             </div>
+
+            {/* Guide & Tour */}
+            <div>
+              <h2 className="text-[15px] font-bold text-foreground mb-3">Guide & tour</h2>
+              <div className="bg-card border border-border rounded-xl p-5 shadow-sm">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <h3 className="text-[14px] font-bold text-foreground">
+                      Interactive feature tour
+                    </h3>
+                    <p className="text-[12px] text-muted-foreground mt-0.5 max-w-[340px]">
+                      Replay the onboarding walkthrough to review recording tips, menu bar features,
+                      and cloud setup.
+                    </p>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      localStorage.removeItem('embrace_onboarding_completed')
+                      window.location.reload()
+                    }}
+                    className="h-9 px-4 bg-secondary hover:bg-border border border-border text-foreground rounded-lg text-[13px] font-semibold transition-all shrink-0"
+                  >
+                    Replay tour
+                  </button>
+                </div>
+              </div>
+            </div>
           </div>
 
           {/* Right Column (Models) */}

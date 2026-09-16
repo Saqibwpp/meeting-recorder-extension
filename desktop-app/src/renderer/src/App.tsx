@@ -7,11 +7,13 @@ import { LibraryView, PlayerView } from './features/library'
 import { SettingsView } from './features/settings'
 import { TrayView } from './features/tray/components/TrayView'
 import { Sidebar } from './components/layout/Sidebar'
+import { OnboardingModal, useOnboarding } from './features/onboarding'
 import { Loader2 } from 'lucide-react'
 
 function MainLayout(): React.ReactElement {
   const { user, logout } = useAuth()
   const { isConfigured } = useApiKey()
+  const { isOpen: isOnboardingOpen, closeOnboarding, completeOnboarding } = useOnboarding()
   const [sidebarCollapsed, setSidebarCollapsed] = useState(true)
 
   if (!user) {
@@ -20,6 +22,13 @@ function MainLayout(): React.ReactElement {
 
   return (
     <div className="h-screen flex flex-col bg-background text-foreground overflow-hidden font-body antialiased">
+      {/* Interactive Onboarding Modal */}
+      <OnboardingModal
+        isOpen={isOnboardingOpen}
+        onClose={closeOnboarding}
+        onComplete={completeOnboarding}
+      />
+
       {/* Slim draggable title bar */}
       <div
         className="h-[32px] shrink-0 flex items-center bg-transparent fixed top-0 w-full z-50"
