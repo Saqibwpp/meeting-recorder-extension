@@ -1,46 +1,12 @@
 import React, { useState } from 'react'
-import {
-  Play,
-  Settings,
-  Mic2,
-  Monitor,
-  Sparkles,
-  ChevronDown,
-  Check,
-  Square,
-  LucideIcon
-} from 'lucide-react'
+import { Play, Settings, Mic2, Monitor, Sparkles, ChevronDown, Check, Square } from 'lucide-react'
+import { useNavigate } from 'react-router-dom'
 import { TopBar } from '../../../components/layout/TopBar'
+import { ActionButton } from '../../../components/ui/ActionButton'
 import { useMediaRecorder } from '../hooks/useMediaRecorder'
 import { useAudioDevices } from '../hooks/useAudioDevices'
 import { useGeminiModels } from '../../../hooks/useGeminiModels'
-import { useNavigate } from 'react-router-dom'
 import { useMeetings } from '../../library/hooks/useMeetings'
-
-interface ActionProps {
-  children: React.ReactNode
-  icon?: LucideIcon
-  muted?: boolean
-  onClick?: () => void
-}
-
-const Action = ({
-  children,
-  icon: Icon,
-  muted = false,
-  onClick
-}: ActionProps): React.ReactElement => {
-  return (
-    <button
-      type="button"
-      className={muted ? 'action-button-muted' : 'action-button'}
-      onClick={onClick}
-    >
-      {Icon && <Icon className="w-3.5 h-3.5" strokeWidth={1.8} />}
-      {children}
-    </button>
-  )
-}
 
 export const RecorderView: React.FC = () => {
   const navigate = useNavigate()
@@ -50,38 +16,12 @@ export const RecorderView: React.FC = () => {
   const { models, selectedModel, setSelectedModel } = useGeminiModels()
   const { data: meetings = [] } = useMeetings()
 
-  const bars = [
-    'h-4',
-    'h-8',
-    'h-12',
-    'h-6',
-    'h-14',
-    'h-9',
-    'h-11',
-    'h-5',
-    'h-10',
-    'h-16',
-    'h-7',
-    'h-11',
-    'h-5',
-    'h-14',
-    'h-8',
-    'h-12',
-    'h-6',
-    'h-14',
-    'h-9',
-    'h-5',
-    'h-16',
-    'h-10',
-    'h-7',
-    'h-12',
-    'h-5',
-    'h-9',
-    'h-6',
-    'h-13',
-    'h-8',
-    'h-11'
+  // 48 waveform bars representing balanced audio levels across the full card width
+  const baseBars = [
+    18, 32, 48, 24, 60, 36, 44, 20, 40, 68, 28, 48, 22, 58, 34, 50, 26, 62, 38, 22, 70, 42, 30, 52,
+    22, 38, 26, 56, 34, 46, 20, 54, 38, 64, 28, 44, 18, 50, 32, 60, 24, 42, 20, 56, 36, 48, 26, 34
   ]
+
   const recentRecordings = meetings.slice(0, 3)
 
   return (
@@ -91,10 +31,10 @@ export const RecorderView: React.FC = () => {
         context="New session"
         actions={
           <>
-            <Action muted icon={Settings} onClick={() => navigate('/settings')}>
+            <ActionButton muted icon={Settings} onClick={() => navigate('/settings')}>
               Setup
-            </Action>
-            <Action
+            </ActionButton>
+            <ActionButton
               icon={isRecording ? Square : Play}
               onClick={() => {
                 if (isRecording) {
@@ -105,7 +45,7 @@ export const RecorderView: React.FC = () => {
               }}
             >
               {isRecording ? 'Stop recording' : 'Start recording'}
-            </Action>
+            </ActionButton>
           </>
         }
       />
@@ -113,50 +53,57 @@ export const RecorderView: React.FC = () => {
       <div className="mx-auto w-full max-w-[1180px] px-8 py-8 flex-1">
         <div className="grid grid-cols-12 gap-6">
           <section className="col-span-7">
-            <div className="mb-4 flex items-center gap-2.5">
+            <div className="mb-3 flex items-center gap-2.5">
               <span
                 className={`w-2.5 h-2.5 rounded-full ${isRecording ? 'bg-red-500 animate-pulse' : 'bg-primary'}`}
               />
               <span
-                className={`text-[11px] uppercase tracking-[0.18em] ${isRecording ? 'text-red-500' : 'text-primary'}`}
+                className={`text-[11px] uppercase tracking-[0.18em] font-semibold ${
+                  isRecording ? 'text-red-500' : 'text-primary'
+                }`}
               >
                 {isRecording ? 'Recording active' : 'Recorder ready'}
               </span>
               <span className="text-[12px] text-subtle">Screen and audio</span>
             </div>
 
-            <h1 className="max-w-[16ch] text-balance font-display text-[44px] font-semibold leading-[1.02] text-foreground">
-              Capture the meeting.
-              <br />
-              Keep the momentum.
+            <h1 className="max-w-[20ch] text-balance font-display text-[28px] font-bold leading-tight text-foreground">
+              Capture the meeting. Keep the momentum.
             </h1>
-            <p className="mt-3 max-w-[48ch] text-[15px] leading-relaxed text-muted-foreground">
+            <p className="mt-2.5 max-w-[48ch] text-[14px] leading-relaxed text-muted-foreground">
               Record your screen and microphone while Cadence prepares a searchable transcript,
               concise summary, and clear next steps.
             </p>
 
-            <div className="mt-7 rounded-xl bg-foreground p-5 text-background shadow-inset">
-              <div className="flex h-16 items-end gap-[5px] overflow-hidden">
-                {bars.map((height, index) => (
-                  <span
-                    key={index}
-                    className={`w-1 shrink-0 rounded-full ${height} ${
-                      isRecording
-                        ? index % 3 === 0
-                          ? 'bg-red-400'
-                          : 'bg-red-500/50'
-                        : index < 20
-                          ? 'bg-primary/45'
-                          : 'bg-background/15'
-                    } transition-colors duration-300`}
-                  />
-                ))}
+            <div className="mt-6 rounded-xl bg-foreground p-5 text-background shadow-inset">
+              <div className="flex h-16 w-full items-end justify-between gap-[3px] overflow-hidden">
+                {baseBars.map((heightPercent, index) => {
+                  const barHeight = isRecording
+                    ? `${Math.max(15, (heightPercent + (index % 5) * 8) % 100)}%`
+                    : `${heightPercent}%`
+
+                  return (
+                    <span
+                      key={index}
+                      style={{ height: barHeight }}
+                      className={`flex-1 min-w-[2px] max-w-[6px] rounded-full transition-all duration-300 ${
+                        isRecording
+                          ? index % 2 === 0
+                            ? 'bg-red-400'
+                            : 'bg-red-500/60'
+                          : index < 32
+                            ? 'bg-primary/55'
+                            : 'bg-background/20'
+                      }`}
+                    />
+                  )
+                })}
               </div>
               <div className="mt-4 flex items-center justify-between border-t border-background/10 pt-4 text-[11px] text-background/50">
                 <span className="flex items-center gap-2">
                   <Mic2 className="w-3.5 h-3.5" />
                   {audioDevices.find((d) => d.deviceId === selectedMicId)?.label ||
-                    'System Microphone'}
+                    'Default Microphone'}
                 </span>
                 <span>Mono · 48 kHz</span>
               </div>
@@ -171,7 +118,7 @@ export const RecorderView: React.FC = () => {
               </span>
             </div>
 
-            <label className="field-label mt-6">Meeting title</label>
+            <label className="field-label mt-5">Meeting title</label>
             <div className="field focus-within:ring-2 focus-within:ring-ring">
               <input
                 type="text"
@@ -208,7 +155,9 @@ export const RecorderView: React.FC = () => {
             <div className="field relative">
               <span className="flex items-center gap-2 text-foreground truncate max-w-[200px]">
                 <Sparkles className="w-3.5 h-3.5 text-primary shrink-0" />
-                {models.find((m) => m.name === selectedModel)?.name || 'Gemini 3.6 Flash'}
+                {models.find((m) => m.name === selectedModel)?.name ||
+                  selectedModel ||
+                  'Gemini 3.6 Flash'}
               </span>
               <ChevronDown className="w-3.5 h-3.5 text-subtle shrink-0" />
               <select

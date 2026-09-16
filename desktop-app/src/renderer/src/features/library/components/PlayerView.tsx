@@ -11,8 +11,7 @@ import {
   WandSparkles,
   AlertCircle,
   RefreshCw,
-  AlertTriangle,
-  LucideIcon
+  AlertTriangle
 } from 'lucide-react'
 import { useMeeting } from '../hooks/useMeeting'
 import { useRetryTranscription } from '../hooks/useRetryTranscription'
@@ -20,6 +19,7 @@ import { useGeminiModels } from '../../../hooks/useGeminiModels'
 import { useApiKey } from '../../../hooks/useApiKey'
 import { ModelSelect } from '../../../components/ui/ModelSelect'
 import { TopBar } from '../../../components/layout/TopBar'
+import { ActionButton } from '../../../components/ui/ActionButton'
 
 const parseTimeToSeconds = (timeStr: string): number => {
   if (!timeStr) return 0
@@ -30,31 +30,6 @@ const parseTimeToSeconds = (timeStr: string): number => {
     return min * 60 + sec
   }
   return 0
-}
-
-interface ActionProps {
-  children: React.ReactNode
-  icon?: LucideIcon
-  muted?: boolean
-  onClick?: () => void
-}
-
-const Action = ({
-  children,
-  icon: Icon,
-  muted = false,
-  onClick
-}: ActionProps): React.ReactElement => {
-  return (
-    <button
-      type="button"
-      className={muted ? 'action-button-muted' : 'action-button'}
-      onClick={onClick}
-    >
-      {Icon && <Icon className="w-3.5 h-3.5" strokeWidth={1.8} />}
-      {children}
-    </button>
-  )
 }
 
 export const PlayerView: React.FC = () => {
@@ -151,12 +126,12 @@ export const PlayerView: React.FC = () => {
         context={`${formattedDate}${formattedTime ? `, ${formattedTime}` : ''}`}
         actions={
           <>
-            <Action muted icon={Share2} onClick={() => alert('Share feature coming soon')}>
+            <ActionButton muted icon={Share2} onClick={() => alert('Share feature coming soon')}>
               Share
-            </Action>
-            <Action icon={Download} onClick={() => alert('Export notes feature coming soon')}>
-              Export notes
-            </Action>
+            </ActionButton>
+            <ActionButton icon={Download} onClick={() => alert('Export notes feature coming soon')}>
+              Export
+            </ActionButton>
           </>
         }
       />

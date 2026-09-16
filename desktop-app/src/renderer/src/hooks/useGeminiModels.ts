@@ -1,6 +1,6 @@
 import { useQuery, UseQueryResult } from '@tanstack/react-query'
 import { useApiKey } from './useApiKey'
-import { useState, useCallback } from 'react'
+import { useState, useEffect, useCallback } from 'react'
 
 export interface GeminiModelOption {
   name: string
@@ -17,16 +17,29 @@ interface UseGeminiModelsReturn {
   setSelectedModel: (modelName: string) => void
   isLoading: boolean
   query: UseQueryResult<GeminiModelOption[], Error>
+  refetch: () => Promise<unknown>
 }
 
-/**
- * Single source of truth for Gemini model selection.
- * Fetches models from the API via react-query, falls back to hardcoded list.
- * No localStorage — always defaults to the recommended model on app start.
- */
+const STORAGE_KEY = 'selected_gemini_model'
+
 export function useGeminiModels(): UseGeminiModelsReturn {
   const { apiKey } = useApiKey()
-  const [selectedModel, setSelectedModel] = useState<string>('')
+  const [selectedModel, setLocalSelectedModel] = useState<string>(() => {
+    return localStorage.getItem(STORAGE_KEY) || ''
+  })
+
+  useEffect(() => {
+    const handleStorageChange = (): void => {
+      const stored = localStorage.getItem(STORAGE_KEY) || ''
+      setLocalSelectedModel(stored)
+    }
+    window.addEventListener('storage', handleStorageChange)
+    window.addEventListener('cadence_model_changed', handleStorageChange)
+    return () => {
+      window.removeEventListener('storage', handleStorageChange)
+      window.removeEventListener('cadence_model_changed', handleStorageChange)
+    }
+  }, [])
 
   const query = useQuery<GeminiModelOption[], Error>({
     queryKey: ['gemini-models', apiKey],
@@ -38,18 +51,20 @@ export function useGeminiModels(): UseGeminiModelsReturn {
       return models || []
     },
     enabled: !!apiKey,
-    staleTime: 10 * 60 * 1000, // Cache for 10 minutes
+    staleTime: 10 * 60 * 1000,
     retry: 1
   })
 
   const models = query.data ?? []
 
-  // Derive the active model purely during render (avoids useEffect cascading renders)
+  // Derive the active model
   const isValidSelection = models.some((m) => m.name === selectedModel)
   const effectiveModel = isValidSelection ? selectedModel : models[0]?.name || ''
 
   const handleSetSelectedModel = useCallback((modelName: string) => {
-    setSelectedModel(modelName)
+    localStorage.setItem(STORAGE_KEY, modelName)
+    setLocalSelectedModel(modelName)
+    window.dispatchEvent(new Event('cadence_model_changed'))
   }, [])
 
   const selectedModelInfo = models.find((m) => m.name === effectiveModel)
@@ -60,6 +75,7 @@ export function useGeminiModels(): UseGeminiModelsReturn {
     selectedModelInfo,
     setSelectedModel: handleSetSelectedModel,
     isLoading: query.isLoading,
-    query
+    query,
+    refetch: query.refetch
   }
 }
