@@ -3,7 +3,7 @@ import { Play, Settings, Mic2, Monitor, Sparkles, ChevronDown, Check, Square } f
 import { useNavigate } from 'react-router-dom'
 import { TopBar } from '../../../components/layout/TopBar'
 import { ActionButton } from '../../../components/ui/ActionButton'
-import { useMediaRecorder } from '../hooks/useMediaRecorder'
+import { useRecorder } from '../hooks/useRecorder'
 import { useAudioDevices } from '../hooks/useAudioDevices'
 import { useGeminiModels } from '../../../hooks/useGeminiModels'
 import { useMeetings } from '../../library/hooks/useMeetings'
@@ -11,7 +11,7 @@ import { useMeetings } from '../../library/hooks/useMeetings'
 export const RecorderView: React.FC = () => {
   const navigate = useNavigate()
   const [title, setTitle] = useState('')
-  const { isRecording, startRecording, stopRecording } = useMediaRecorder()
+  const { isRecording, startRecording, stopRecording } = useRecorder()
   const { audioDevices, selectedMicId, setSelectedMicId } = useAudioDevices()
   const { models, selectedModel, setSelectedModel } = useGeminiModels()
   const { data: meetings = [] } = useMeetings()

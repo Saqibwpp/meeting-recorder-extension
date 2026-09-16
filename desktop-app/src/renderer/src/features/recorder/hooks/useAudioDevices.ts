@@ -36,13 +36,23 @@ export function useAudioDevices(): AudioDevicesState {
 
   const refreshDevices = useCallback(async (): Promise<void> => {
     try {
-      await navigator.mediaDevices
-        .getUserMedia({ audio: true })
-        .then((s) => s.getTracks().forEach((t) => t.stop()))
-        .catch(() => {})
+      let devices = await navigator.mediaDevices.enumerateDevices()
+      let mics = devices.filter((d) => d.kind === 'audioinput')
 
-      const devices = await navigator.mediaDevices.enumerateDevices()
-      const mics = devices.filter((d) => d.kind === 'audioinput')
+      // Only query getUserMedia if device labels are completely hidden (first-time permission)
+      // This prevents triggering Bluetooth hands-free SCO mode and ruining music playback audio quality.
+      const hasLabels = mics.some((m) => m.label && m.label.length > 0)
+      if (!hasLabels && mics.length > 0) {
+        try {
+          const stream = await navigator.mediaDevices.getUserMedia({ audio: true })
+          stream.getTracks().forEach((t) => t.stop())
+          devices = await navigator.mediaDevices.enumerateDevices()
+          mics = devices.filter((d) => d.kind === 'audioinput')
+        } catch {
+          // Ignored if permission prompt is dismissed
+        }
+      }
+
       setAudioDevices(mics)
 
       setSelectedMicId((currentId) => {

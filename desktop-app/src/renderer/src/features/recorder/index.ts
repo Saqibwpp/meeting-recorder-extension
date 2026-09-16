@@ -1,3 +1,6 @@
 export * from './components/RecorderView'
 export * from './hooks/useMediaRecorder'
 export * from './hooks/useAudioDevices'
+export * from './hooks/useRecorder'
+export * from './context/RecorderContext'
+export * from './context/RecorderProvider'

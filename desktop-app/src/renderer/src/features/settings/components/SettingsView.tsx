@@ -15,6 +15,7 @@ import {
 import { useApiKey } from '../../../hooks/useApiKey'
 import { useGeminiModels } from '../../../hooks/useGeminiModels'
 import { useGoogleDrive } from '../../../hooks/useGoogleDrive'
+import { useLaunchAtLogin } from '../../../hooks/useLaunchAtLogin'
 
 export const SettingsView: React.FC = () => {
   const { apiKey, setApiKey, isConfigured } = useApiKey()
@@ -27,6 +28,7 @@ export const SettingsView: React.FC = () => {
     refetch
   } = useGeminiModels()
   const { isConnected, isConnecting, isDisconnecting, connect, disconnect } = useGoogleDrive()
+  const { isLaunchAtLogin, toggleLaunchAtLogin, isUpdating: isUpdatingLaunch } = useLaunchAtLogin()
   const [inputValue, setInputValue] = useState(apiKey)
   const [showKey, setShowKey] = useState(false)
   const [isSaving, setIsSaving] = useState(false)
@@ -227,6 +229,37 @@ export const SettingsView: React.FC = () => {
                   </div>
                 </div>
                 <div className="text-[12px] font-medium text-subtle">Local Disk</div>
+              </div>
+            </div>
+
+            {/* Application Startup */}
+            <div>
+              <h2 className="text-[15px] font-bold text-foreground mb-3">Background & startup</h2>
+              <div className="bg-card border border-border rounded-xl p-5 shadow-sm">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <h3 className="text-[14px] font-bold text-foreground">Launch on Mac startup</h3>
+                    <p className="text-[12px] text-muted-foreground mt-0.5 max-w-[340px]">
+                      Runs Embrace in the background Menu Bar so meetings on Zoom, Meet, and Teams
+                      are auto-detected.
+                    </p>
+                  </div>
+
+                  <button
+                    type="button"
+                    onClick={() => toggleLaunchAtLogin(!isLaunchAtLogin)}
+                    disabled={isUpdatingLaunch}
+                    className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors focus:outline-none ${
+                      isLaunchAtLogin ? 'bg-foreground' : 'bg-secondary border border-border'
+                    }`}
+                  >
+                    <span
+                      className={`inline-block h-4 w-4 transform rounded-full bg-background transition-transform ${
+                        isLaunchAtLogin ? 'translate-x-6' : 'translate-x-1'
+                      }`}
+                    />
+                  </button>
+                </div>
               </div>
             </div>
           </div>

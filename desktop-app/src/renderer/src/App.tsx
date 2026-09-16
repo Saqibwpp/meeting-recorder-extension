@@ -2,7 +2,7 @@ import React, { useState } from 'react'
 import { HashRouter, Routes, Route, Navigate, Outlet } from 'react-router-dom'
 import { useAuth, AuthCard } from './features/auth'
 import { useApiKey } from './hooks/useApiKey'
-import { RecorderView } from './features/recorder'
+import { RecorderView, RecorderProvider } from './features/recorder'
 import { LibraryView, PlayerView } from './features/library'
 import { SettingsView } from './features/settings'
 import { TrayView } from './features/tray/components/TrayView'
@@ -63,18 +63,20 @@ export default function App(): React.ReactElement {
   }
 
   return (
-    <HashRouter>
-      <Routes>
-        <Route path="/" element={<MainLayout />}>
-          <Route index element={<Navigate to="/library" replace />} />
-          <Route path="library" element={<LibraryView />} />
-          <Route path="player/:meetingId" element={<PlayerView />} />
-          <Route path="record" element={<RecorderView />} />
-          <Route path="settings" element={<SettingsView />} />
-        </Route>
-        <Route path="/tray" element={<TrayView />} />
-        <Route path="*" element={<Navigate to="/" replace />} />
-      </Routes>
-    </HashRouter>
+    <RecorderProvider>
+      <HashRouter>
+        <Routes>
+          <Route path="/" element={<MainLayout />}>
+            <Route index element={<Navigate to="/library" replace />} />
+            <Route path="library" element={<LibraryView />} />
+            <Route path="player/:meetingId" element={<PlayerView />} />
+            <Route path="record" element={<RecorderView />} />
+            <Route path="settings" element={<SettingsView />} />
+          </Route>
+          <Route path="/tray" element={<TrayView />} />
+          <Route path="*" element={<Navigate to="/" replace />} />
+        </Routes>
+      </HashRouter>
+    </RecorderProvider>
   )
 }

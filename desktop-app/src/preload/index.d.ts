@@ -1,5 +1,11 @@
 import { ElectronAPI } from '@electron-toolkit/preload'
 
+export interface RecordingState {
+  isRecording: boolean
+  elapsedSeconds: number
+  title: string
+}
+
 declare global {
   interface Window {
     electron: ElectronAPI
@@ -36,6 +42,19 @@ declare global {
       disconnectDrive: () => Promise<void>
       checkDriveStatus: () => Promise<boolean>
       uploadToDrive: (filePath: string, title: string) => Promise<string | null>
+      getLaunchAtLogin: () => Promise<boolean>
+      setLaunchAtLogin: (enabled: boolean) => Promise<boolean>
+
+      // Tray & Recording Synchronization
+      startRecordingFromTray: (title?: string) => void
+      stopRecordingFromTray: () => void
+      sendRecordingState: (state: RecordingState) => void
+      onRecordingStateChanged: (callback: (state: RecordingState) => void) => () => void
+      onTriggerStartRecording: (callback: (title?: string) => void) => () => void
+      onTriggerStopRecording: (callback: () => void) => () => void
+      onMeetingDetected: (callback: () => void) => () => void
+      openMainWindow: (route?: string) => void
+      hideTrayWindow: () => void
     }
   }
 }

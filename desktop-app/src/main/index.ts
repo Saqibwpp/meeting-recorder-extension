@@ -41,6 +41,8 @@ protocol.registerSchemesAsPrivileged([
 let mainWindow: BrowserWindow | null = null
 let trayWindow: BrowserWindow | null = null
 let tray: Tray | null = null
+let isRecordingActive = false
+let micMonitorProcess: ChildProcess | null = null
 
 function getSwiftBinaryPath(): string {
   if (is.dev) {
@@ -51,15 +53,65 @@ function getSwiftBinaryPath(): string {
   return join(process.resourcesPath, 'AudioCapture')
 }
 
+function getMicMonitorBinaryPath(): string {
+  if (is.dev) {
+    return join(app.getAppPath(), 'swift-audio', 'build', 'MicMonitor')
+  }
+  return join(process.resourcesPath, 'MicMonitor')
+}
+
+function startMicMonitor(): void {
+  if (process.platform !== 'darwin') return
+
+  const binaryPath = getMicMonitorBinaryPath()
+  try {
+    console.log(`[Main] Launching MicMonitor listener: ${binaryPath}`)
+    micMonitorProcess = spawn(binaryPath, [], {
+      stdio: ['ignore', 'pipe', 'pipe']
+    })
+
+    micMonitorProcess.stdout?.on('data', (data: Buffer) => {
+      const output = data.toString().trim()
+      if (output.includes('MIC_ACTIVE:1')) {
+        console.log('[Main] macOS Microphone became ACTIVE!')
+        if (!isRecordingActive) {
+          showTrayWindow()
+          trayWindow?.webContents.send('meeting-detected')
+        }
+      } else if (output.includes('MIC_ACTIVE:0')) {
+        console.log('[Main] macOS Microphone is now IDLE.')
+      }
+    })
+
+    micMonitorProcess.stderr?.on('data', (data: Buffer) => {
+      console.warn(`[MicMonitor] ${data.toString().trim()}`)
+    })
+
+    micMonitorProcess.on('error', (err) => {
+      console.warn('[Main] MicMonitor failed to start:', err)
+      micMonitorProcess = null
+    })
+
+    micMonitorProcess.on('exit', () => {
+      micMonitorProcess = null
+    })
+  } catch (err) {
+    console.warn('[Main] Error starting MicMonitor:', err)
+  }
+}
+
 // ==========================================
 // 2. MAIN WINDOW MANAGEMENT
 // ==========================================
 
-function createMainWindow(): void {
+function createMainWindow(showOnReady = true): void {
   if (mainWindow) {
-    if (mainWindow.isMinimized()) mainWindow.restore()
-    mainWindow.show()
-    mainWindow.focus()
+    if (showOnReady) {
+      if (mainWindow.isMinimized()) mainWindow.restore()
+      mainWindow.show()
+      mainWindow.focus()
+      if (app.dock) app.dock.show()
+    }
     return
   }
 
@@ -78,8 +130,10 @@ function createMainWindow(): void {
   })
 
   mainWindow.on('ready-to-show', () => {
-    mainWindow?.show()
-    if (app.dock) app.dock.show()
+    if (showOnReady) {
+      mainWindow?.show()
+      if (app.dock) app.dock.show()
+    }
   })
 
   mainWindow.on('closed', () => {
@@ -160,30 +214,32 @@ function createTrayWindow(): void {
   }
 }
 
+function showTrayWindow(): void {
+  if (!tray || !trayWindow) return
+
+  const trayBounds = tray.getBounds()
+  const windowBounds = trayWindow.getBounds()
+
+  const x = Math.round(trayBounds.x + trayBounds.width / 2 - windowBounds.width / 2)
+  let y: number
+  if (process.platform === 'win32') {
+    y = Math.round(trayBounds.y - windowBounds.height)
+  } else {
+    y = Math.round(trayBounds.y + trayBounds.height)
+  }
+
+  trayWindow.setPosition(x, y, false)
+  trayWindow.show()
+  trayWindow.focus()
+}
+
 function toggleTrayWindow(): void {
   if (!tray || !trayWindow) return
 
   if (trayWindow.isVisible()) {
     trayWindow.hide()
   } else {
-    const trayBounds = tray.getBounds()
-    const windowBounds = trayWindow.getBounds()
-
-    // Center window horizontally relative to the tray icon
-    const x = Math.round(trayBounds.x + trayBounds.width / 2 - windowBounds.width / 2)
-
-    let y: number
-    if (process.platform === 'win32') {
-      // On Windows, the tray is usually at the bottom. Position window ABOVE the tray.
-      y = Math.round(trayBounds.y - windowBounds.height)
-    } else {
-      // On macOS, the tray is at the top. Position window BELOW the tray.
-      y = Math.round(trayBounds.y + trayBounds.height)
-    }
-
-    trayWindow.setPosition(x, y, false)
-    trayWindow.show()
-    trayWindow.focus()
+    showTrayWindow()
   }
 }
 
@@ -636,8 +692,49 @@ app.whenReady().then(async () => {
   // IPC test
   ipcMain.on('ping', () => console.log('pong'))
 
-  ipcMain.on('open-main-window', () => {
-    createMainWindow()
+  // Launch at Login
+  ipcMain.handle('get-launch-at-login', () => {
+    return app.getLoginItemSettings().openAtLogin
+  })
+
+  ipcMain.handle('set-launch-at-login', (_event, enabled: boolean) => {
+    app.setLoginItemSettings({
+      openAtLogin: enabled,
+      openAsHidden: true
+    })
+    return app.getLoginItemSettings().openAtLogin
+  })
+
+  ipcMain.on('tray-start-recording', (_event, title?: string) => {
+    if (!mainWindow) {
+      createMainWindow(false)
+    }
+    mainWindow?.webContents.send('trigger-start-recording', title)
+  })
+
+  ipcMain.on('tray-stop-recording', () => {
+    mainWindow?.webContents.send('trigger-stop-recording')
+  })
+
+  ipcMain.on('broadcast-recording-state', (_event, state) => {
+    isRecordingActive = !!state.isRecording
+    trayWindow?.webContents.send('recording-state-changed', state)
+  })
+
+  ipcMain.on('hide-tray-window', () => {
+    trayWindow?.hide()
+  })
+
+  ipcMain.on('open-main-window', (_event, route?: string) => {
+    createMainWindow(true)
+    if (mainWindow) {
+      if (mainWindow.isMinimized()) mainWindow.restore()
+      mainWindow.show()
+      mainWindow.focus()
+      if (route) {
+        mainWindow.webContents.send('navigate-to', route)
+      }
+    }
     if (trayWindow?.isVisible()) {
       trayWindow.hide()
     }
@@ -647,19 +744,12 @@ app.whenReady().then(async () => {
     app.quit()
   })
 
-  // We hide the dock icon so it behaves strictly like a tray app by default
-  if (app.dock) app.dock.hide()
-
   createTray()
   createTrayWindow()
-
-  // Create main window but it's hidden by default, or you can just wait for 'open-main-window'
-  // Let's create it so it's ready.
-  // Actually, we can just let 'open-main-window' create it if needed.
+  startMicMonitor()
+  createMainWindow()
 
   app.on('activate', function () {
-    // On macOS it's common to re-create a window in the app when the
-    // dock icon is clicked and there are no other windows open.
     if (!mainWindow) createMainWindow()
   })
 })
@@ -668,19 +758,19 @@ app.whenReady().then(async () => {
 // 7. APP LIFECYCLE & CLEANUP
 // ==========================================
 
-// Quit when all windows are closed, except on macOS. There, it's common
-// for applications and their menu bar to stay active until the user quits
-// explicitly with Cmd + Q.
 app.on('window-all-closed', () => {
   if (process.platform !== 'darwin') {
     app.quit()
   }
 })
 
-// Clean up Swift process on app quit
+// Clean up background processes on app quit
 app.on('before-quit', () => {
   if (swiftProcess) {
     swiftProcess.kill('SIGINT')
+  }
+  if (micMonitorProcess) {
+    micMonitorProcess.kill('SIGKILL')
   }
 })
 
