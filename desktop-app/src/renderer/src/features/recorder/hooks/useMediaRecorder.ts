@@ -245,6 +245,41 @@ export function useMediaRecorder(): MediaRecorderState {
               }
             } else {
               console.warn('[useMediaRecorder] No API key configured, skipping transcription')
+              if (backendDocId) {
+                // Auto-upload to Google Drive if connected even without transcription
+                let driveUrl: string | null = null
+                try {
+                  if (window.api?.checkDriveStatus && window.api?.uploadToDrive) {
+                    const isDriveConnected = await window.api.checkDriveStatus()
+                    if (isDriveConnected) {
+                      console.log('[useMediaRecorder] Auto-uploading to Google Drive...')
+                      const isLinkSharingEnabled =
+                        localStorage.getItem('drive_link_sharing') !== 'false'
+                      driveUrl = await window.api.uploadToDrive(
+                        paths.videoPath,
+                        currentTitleRef.current,
+                        isLinkSharingEnabled
+                      )
+                      if (driveUrl) {
+                        console.log('[useMediaRecorder] Drive upload complete:', driveUrl)
+                      }
+                    }
+                  }
+                } catch (driveErr) {
+                  console.error('[useMediaRecorder] Drive upload failed:', driveErr)
+                }
+
+                await api.patch('/api/meetings', {
+                  id: backendDocId,
+                  durationSeconds,
+                  status: 'completed',
+                  summary:
+                    'No Gemini API key was configured during this recording. Configure an API key in Settings to generate automatic transcripts and AI summaries.',
+                  ...(driveUrl ? { videoUrl: driveUrl } : {})
+                })
+                queryClient.invalidateQueries({ queryKey: ['meetings'] })
+                queryClient.invalidateQueries({ queryKey: ['meeting', backendDocId] })
+              }
             }
           }
 

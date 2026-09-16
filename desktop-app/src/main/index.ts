@@ -18,14 +18,18 @@ import ffprobePath from 'ffprobe-static'
 // ==========================================
 
 // Set the ffmpeg and ffprobe paths for fluent-ffmpeg
-if (ffmpegPath) {
-  ffmpeg.setFfmpegPath(ffmpegPath)
+// In packaged Electron apps, binaries cannot run from inside app.asar, so they are unpacked into app.asar.unpacked
+const resolvedFfmpegPath = ffmpegPath?.replace('app.asar', 'app.asar.unpacked')
+const resolvedFfprobePath = ffprobePath?.path?.replace('app.asar', 'app.asar.unpacked')
+
+if (resolvedFfmpegPath) {
+  ffmpeg.setFfmpegPath(resolvedFfmpegPath)
 } else {
   console.error('[Main] FFmpeg path is null!')
 }
 
-if (ffprobePath.path) {
-  ffmpeg.setFfprobePath(ffprobePath.path)
+if (resolvedFfprobePath) {
+  ffmpeg.setFfprobePath(resolvedFfprobePath)
 } else {
   console.error('[Main] FFprobe path is null!')
 }

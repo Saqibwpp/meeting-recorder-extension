@@ -1,17 +1,29 @@
 import React, { useState } from 'react'
-import { Play, Settings, Mic2, Monitor, Sparkles, ChevronDown, Check, Square } from 'lucide-react'
+import {
+  Play,
+  Settings,
+  Mic2,
+  Monitor,
+  Sparkles,
+  ChevronDown,
+  Check,
+  Square,
+  AlertTriangle
+} from 'lucide-react'
 import { useNavigate } from 'react-router-dom'
 import { TopBar } from '../../../components/layout/TopBar'
 import { ActionButton } from '../../../components/ui/ActionButton'
 import { useRecorder } from '../hooks/useRecorder'
 import { useAudioDevices } from '../hooks/useAudioDevices'
 import { useGeminiModels } from '../../../hooks/useGeminiModels'
+import { useApiKey } from '../../../hooks/useApiKey'
 import { useMeetings } from '../../library/hooks/useMeetings'
 
 export const RecorderView: React.FC = () => {
   const navigate = useNavigate()
   const [title, setTitle] = useState('')
   const { isRecording, startRecording, stopRecording } = useRecorder()
+  const { isConfigured: isApiKeyConfigured } = useApiKey()
   const { audioDevices, selectedMicId, setSelectedMicId } = useAudioDevices()
   const { models, selectedModel, setSelectedModel } = useGeminiModels()
   const { data: meetings = [] } = useMeetings()
@@ -51,6 +63,29 @@ export const RecorderView: React.FC = () => {
       />
 
       <div className="mx-auto w-full max-w-[1180px] px-8 py-8 flex-1">
+        {/* Missing API Key Alert Banner */}
+        {!isApiKeyConfigured && (
+          <div className="mb-6 rounded-xl border border-amber-500/30 bg-amber-500/10 p-4 flex items-center justify-between gap-4 animate-in fade-in duration-200">
+            <div className="flex items-start gap-3">
+              <div className="w-8 h-8 rounded-lg bg-amber-500/20 text-amber-600 dark:text-amber-400 grid place-items-center shrink-0 mt-0.5">
+                <AlertTriangle className="w-4 h-4" />
+              </div>
+              <div>
+                <h4 className="text-[13px] font-semibold text-foreground">Gemini API Key Required for AI Transcripts</h4>
+                <p className="text-[12px] text-muted-foreground mt-0.5">
+                  Your meeting will still record and save audio/video locally, but automated transcription and AI summaries require a Google Gemini API key.
+                </p>
+              </div>
+            </div>
+            <ActionButton
+              onClick={() => navigate('/settings')}
+              className="shrink-0 text-[12px]"
+            >
+              Configure in Settings
+            </ActionButton>
+          </div>
+        )}
+
         <div className="grid grid-cols-12 gap-6">
           <section className="col-span-7">
             <div className="mb-3 flex items-center gap-2.5">
@@ -58,9 +93,8 @@ export const RecorderView: React.FC = () => {
                 className={`w-2.5 h-2.5 rounded-full ${isRecording ? 'bg-red-500 animate-pulse' : 'bg-primary'}`}
               />
               <span
-                className={`text-[11px] uppercase tracking-[0.18em] font-semibold ${
-                  isRecording ? 'text-red-500' : 'text-primary'
-                }`}
+                className={`text-[11px] uppercase tracking-[0.18em] font-semibold ${isRecording ? 'text-red-500' : 'text-primary'
+                  }`}
               >
                 {isRecording ? 'Recording active' : 'Recorder ready'}
               </span>
@@ -86,15 +120,14 @@ export const RecorderView: React.FC = () => {
                     <span
                       key={index}
                       style={{ height: barHeight }}
-                      className={`flex-1 min-w-[2px] max-w-[6px] rounded-full transition-all duration-300 ${
-                        isRecording
+                      className={`flex-1 min-w-[2px] max-w-[6px] rounded-full transition-all duration-300 ${isRecording
                           ? index % 2 === 0
                             ? 'bg-red-400'
                             : 'bg-red-500/60'
                           : index < 32
                             ? 'bg-primary/55'
                             : 'bg-background/20'
-                      }`}
+                        }`}
                     />
                   )
                 })}
@@ -183,11 +216,10 @@ export const RecorderView: React.FC = () => {
                   startRecording(title, selectedMicId, selectedModel)
                 }
               }}
-              className={`mt-6 flex w-full items-center justify-center gap-2 rounded-lg py-3 text-[13px] font-medium transition-colors ${
-                isRecording
+              className={`mt-6 flex w-full items-center justify-center gap-2 rounded-lg py-3 text-[13px] font-medium transition-colors ${isRecording
                   ? 'bg-red-500 text-white hover:bg-red-600'
                   : 'bg-foreground text-background hover:opacity-90'
-              }`}
+                }`}
             >
               {isRecording ? (
                 <>
@@ -221,11 +253,11 @@ export const RecorderView: React.FC = () => {
               const formattedDate =
                 !isNaN(dateObj.getTime()) && dateObj.getTime() > 0
                   ? dateObj.toLocaleDateString(undefined, {
-                      month: 'short',
-                      day: 'numeric',
-                      hour: 'numeric',
-                      minute: '2-digit'
-                    })
+                    month: 'short',
+                    day: 'numeric',
+                    hour: 'numeric',
+                    minute: '2-digit'
+                  })
                   : 'Recent'
 
               const totalMins = Math.floor((item.durationSeconds || 0) / 60)
