@@ -34,10 +34,10 @@ export function useGeminiModels(): UseGeminiModelsReturn {
       setLocalSelectedModel(stored)
     }
     window.addEventListener('storage', handleStorageChange)
-    window.addEventListener('cadence_model_changed', handleStorageChange)
+    window.addEventListener('embrace_model_changed', handleStorageChange)
     return () => {
       window.removeEventListener('storage', handleStorageChange)
-      window.removeEventListener('cadence_model_changed', handleStorageChange)
+      window.removeEventListener('embrace_model_changed', handleStorageChange)
     }
   }, [])
 
@@ -64,7 +64,7 @@ export function useGeminiModels(): UseGeminiModelsReturn {
   const handleSetSelectedModel = useCallback((modelName: string) => {
     localStorage.setItem(STORAGE_KEY, modelName)
     setLocalSelectedModel(modelName)
-    window.dispatchEvent(new Event('cadence_model_changed'))
+    window.dispatchEvent(new Event('embrace_model_changed'))
   }, [])
 
   const selectedModelInfo = models.find((m) => m.name === effectiveModel)

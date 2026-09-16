@@ -49,7 +49,7 @@ export const Sidebar: React.FC<SidebarProps> = ({ userEmail, isApiKeyConfigured,
             <span className="rec-dot w-2.5 h-2.5 rounded-full bg-primary" />
           </div>
           <div className="leading-none">
-            <p className="font-display text-[15px] font-semibold text-foreground">Cadence</p>
+            <p className="font-display text-[15px] font-semibold text-foreground">Embrace</p>
             <p className="mt-1 text-[10px] uppercase tracking-[0.18em] text-subtle">Studio</p>
           </div>
         </div>
@@ -128,7 +128,7 @@ export const Sidebar: React.FC<SidebarProps> = ({ userEmail, isApiKeyConfigured,
 
       <ConfirmModal
         isOpen={showLogoutConfirm}
-        title="Log out of Cadence"
+        title="Log out of Embrace AI"
         message="Are you sure you want to log out? You will need to sign in again to record and access your library."
         confirmLabel="Log out"
         cancelLabel="Cancel"

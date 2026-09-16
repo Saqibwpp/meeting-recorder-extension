@@ -71,7 +71,7 @@ export const RecorderView: React.FC = () => {
               Capture the meeting. Keep the momentum.
             </h1>
             <p className="mt-2.5 max-w-[48ch] text-[14px] leading-relaxed text-muted-foreground">
-              Record your screen and microphone while Cadence prepares a searchable transcript,
+              Record your screen and microphone while Embrace prepares a searchable transcript,
               concise summary, and clear next steps.
             </p>
 
