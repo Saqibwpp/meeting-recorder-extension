@@ -44,7 +44,7 @@ export function useMeetingsQuery() {
   const queryClient = useQueryClient();
 
   useEffect(() => {
-    const handleRuntimeMessage = (message: any) => {
+    const handleRuntimeMessage = (message: { type?: string }) => {
       if (message?.type === 'MEETINGS_UPDATED') {
         queryClient.invalidateQueries({ queryKey: MEETINGS_QUERY_KEY });
         queryClient.invalidateQueries({ queryKey: RECORDING_STATUS_KEY });
