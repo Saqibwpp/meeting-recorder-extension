@@ -69,8 +69,9 @@ export const Onboarding: React.FC<OnboardingProps> = ({ onComplete }) => {
         await createUserWithEmailAndPassword(auth, email, password);
       }
       setStep(2);
-    } catch (err: any) {
-      setError(err.message || 'Authentication failed');
+    } catch (err) {
+      const error = err instanceof Error ? err : new Error(String(err));
+      setError(error.message || 'Authentication failed');
     } finally {
       setIsAuthLoading(false);
     }

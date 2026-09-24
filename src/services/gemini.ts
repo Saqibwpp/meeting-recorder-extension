@@ -11,11 +11,92 @@ export interface GeminiTranscriptionOptions {
   fallbackModels?: string[];
 }
 
+export interface GeminiModelInfo {
+  name: string;
+  id: string;
+  displayName: string;
+  description: string;
+  supportedGenerationMethods: string[];
+}
+
 export const DEFAULT_PRIMARY_MODEL = 'gemini-2.5-flash';
 export const DEFAULT_FALLBACK_MODELS = [
   'gemini-2.0-flash',
   'gemini-1.5-flash'
 ];
+
+/**
+ * Fetches available models for the provided Gemini API Key,
+ * filtering strictly to models that output text via `generateContent`.
+ */
+export async function fetchGeminiModels(apiKey: string): Promise<GeminiModelInfo[]> {
+  const cleanKey = apiKey.trim();
+  if (!cleanKey) return [];
+
+  const url = `https://generativelanguage.googleapis.com/v1beta/models?key=${encodeURIComponent(cleanKey)}`;
+  const response = await fetch(url, {
+    method: 'GET',
+    headers: {
+      'Content-Type': 'application/json'
+    }
+  });
+
+  if (!response.ok) {
+    const errorText = await response.text();
+    throw new Error(`Failed to fetch models (${response.status}): ${errorText}`);
+  }
+
+  const data = (await response.json()) as {
+    models?: Array<{
+      name?: string;
+      displayName?: string;
+      description?: string;
+      supportedGenerationMethods?: string[];
+    }>;
+  };
+
+  const rawModels = data.models || [];
+  const excludedPrefixes = ['models/text-embedding', 'models/embedding', 'models/imagen', 'models/aqa', 'models/tts'];
+
+  const filtered = rawModels
+    .filter((m) => {
+      const name = (m.name || '').toLowerCase();
+      const methods = m.supportedGenerationMethods || [];
+
+      // Must support generateContent (text / multimodal generation)
+      if (!methods.includes('generateContent')) {
+        return false;
+      }
+
+      // Must not be an embedding or non-text-out model
+      if (excludedPrefixes.some((prefix) => name.startsWith(prefix))) {
+        return false;
+      }
+
+      return true;
+    })
+    .map((m) => {
+      const fullName = m.name || '';
+      const id = fullName.replace(/^models\//, '');
+      return {
+        name: fullName,
+        id,
+        displayName: m.displayName || id,
+        description: m.description || '',
+        supportedGenerationMethods: m.supportedGenerationMethods || []
+      };
+    });
+
+  // Sort Flash models first, then Pro models, then others
+  filtered.sort((a, b) => {
+    const aIsFlash = a.id.includes('flash') ? 1 : 0;
+    const bIsFlash = b.id.includes('flash') ? 1 : 0;
+    if (aIsFlash !== bIsFlash) return bIsFlash - aIsFlash;
+    return a.id.localeCompare(b.id);
+  });
+
+  return filtered;
+}
 
 const SYSTEM_PROMPT = `You are an expert AI meeting notetaker and transcription engine.
 The attached audio is a meeting recording:
@@ -63,7 +144,8 @@ export async function transcribeWithGemini(options: GeminiTranscriptionOptions):
 }
 
 async function callGeminiModel(model: string, options: GeminiTranscriptionOptions): Promise<TranscriptData> {
-  const url = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${encodeURIComponent(options.apiKey)}`;
+  const cleanModel = model.replace(/^models\//, '');
+  const url = `https://generativelanguage.googleapis.com/v1beta/models/${encodeURIComponent(cleanModel)}:generateContent?key=${encodeURIComponent(options.apiKey)}`;
 
   const requestBody = {
     contents: [

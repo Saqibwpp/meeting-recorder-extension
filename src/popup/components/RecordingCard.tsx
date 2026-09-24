@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useRecordingStatusQuery, useStartRecordingMutation, useStopRecordingMutation } from '../../hooks/useMeetings';
 import { useSettingsQuery } from '../../hooks/useSettings';
+import { DEFAULT_PRIMARY_MODEL } from '../../services/gemini';
 
 interface RecordingCardProps {
   onNavigateToHistory?: () => void;
@@ -154,7 +155,7 @@ export const RecordingCard: React.FC<RecordingCardProps> = ({ onNavigateToHistor
 
       {/* Model indicator footer */}
       <div className="flex items-center justify-center text-[9px] text-[#888] uppercase tracking-widest mt-1">
-        <span>Model: {settings?.primaryModel || 'gemini-3.1-flash-lite'}</span>
+        <span>Model: {settings?.primaryModel || DEFAULT_PRIMARY_MODEL}</span>
       </div>
     </div>
   );
